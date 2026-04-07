@@ -89,15 +89,25 @@ Start Command: gunicorn -k threading -w 1 app:app --bind 0.0.0.0:$PORT
 
 ```
 MensajeriaComputacion/
-├── app.py                 # Servidor Flask + SocketIO
+├── app.py                 # Servidor Flask + SocketIO (Backend)
 ├── requirements.txt       # Dependencias Python
 ├── render.yaml           # Configuración Render
 ├── .gitignore           # Archivos ignorados por Git
 ├── README.md            # Este archivo
 ├── LICENSE              # Licencia MIT
+├── static/
+│   ├── css/
+│   │   └── chat.css    # Estilos (View)
+│   └── js/
+│       └── chat.js     # Lógica frontend (Controller)
 └── templates/
-    └── chat.html        # Interfaz de usuario
+    └── chat.html       # HTML estructura (View)
 ```
+
+### Arquitectura MVC
+- **Model** (`app.py`): Datos, estado, lógica de negocio
+- **View** (`chat.html` + `chat.css`): Presentación visual  
+- **Controller** (`chat.js`): Interacción usuario-servidor
 
 ## 🎯 Uso en Clase
 
