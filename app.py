@@ -1,36 +1,49 @@
 """
-Servidor de Mensajería Instantánea - Demo para Clase
-Muestra: WebSocket, Broadcasting, Estados de Conexión, Hilos
+Servidor de Mensajería Instantánea - Versión Corregida (Local Only)
+Sin servicios de terceros - Todo en memoria local
 """
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
+import re
 import random
 import os
-import logging
+import threading
+import time
+from collections import defaultdict, deque
 
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Validación de nombre
+NOMBRE_REGEX = re.compile(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]+$')
 
+def validar_nombre(nombre):
+    """Valida que el nombre solo contenga caracteres permitidos"""
+    if not nombre or len(nombre) < 2 or len(nombre) > 20:
+        return False
+    return NOMBRE_REGEX.match(nombre) is not None
+
+# Configuración minimalista (sin servicios externos)
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'demo-secreta-cambiar-en-produccion')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'demo-local-secreta')
 
-# Configuración SocketIO para producción y desarrollo
+# SocketIO simple (sin async_mode externo)
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*",
-    logger=True,
-    engineio_logger=True,
-    ping_timeout=60,
-    ping_interval=25
+    async_mode='threading',  # Usa threading nativo de Python
+    logger=False,  # Sin logs excesivos
+    engineio_logger=False,
+    ping_timeout=30,
+    ping_interval=15,
+    max_http_buffer_size=100000  # 100KB máximo
 )
 
-# Almacenamiento de estado en memoria
-usuarios_conectados = {}  # sid -> nombre
-salas = {'general': {'nombre': 'General', 'usuarios': set()}}
-colores_usuario = {}  # sid -> color
-avatares_usuario = {}  # sid -> base64 imagen
+# Almacenamiento thread-safe en memoria
+usuarios_lock = threading.RLock()
+usuarios_conectados = {}  # sid -> {nombre, color, avatar}
+colores_usuario = {}
+avatares_usuario = {}
+rate_limit_lock = threading.Lock()
+rate_limits = defaultdict(lambda: deque(maxlen=10))  # sid -> deque de timestamps
 
 colores_disponibles = [
     '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', 
@@ -43,171 +56,210 @@ def obtener_color():
 def obtener_hora():
     return datetime.now().strftime('%H:%M')
 
+def check_rate_limit(sid, max_msgs=5, window=5):
+    """Rate limiter simple en memoria"""
+    with rate_limit_lock:
+        now = time.time()
+        history = rate_limits[sid]
+        
+        # Limpiar mensajes antiguos
+        while history and now - history[0] > window:
+            history.popleft()
+        
+        if len(history) >= max_msgs:
+            return False
+        
+        history.append(now)
+        return True
+
+def get_unique_name(nombre):
+    """Genera nombre único sin race conditions"""
+    with usuarios_lock:
+        base = nombre[:20].strip()
+        if not base:
+            base = "Usuario"
+        
+        existing = set(usuarios_conectados.values())
+        if base not in existing:
+            return base
+        
+        counter = 1
+        while f"{base}_{counter}" in existing:
+            counter += 1
+        return f"{base}_{counter}"
+
 @app.route('/')
 def index():
     return render_template('chat.html')
 
 @socketio.on('connect')
 def manejar_conexion():
-    logger.info(f'🟢 Cliente conectado: {request.sid}')
+    print(f'🟢 Cliente conectado: {request.sid[:8]}...')
 
 @socketio.on('registrar_usuario')
 def registrar_usuario(data):
-    nombre = data.get('nombre', 'Anónimo').strip()
-    avatar = data.get('avatar')  # Base64 de la imagen
-    
-    # Validar tamaño del avatar (max 100KB para no sobrecargar memoria)
-    if avatar and len(avatar) > 100000:
-        avatar = None
-    
-    # Evitar nombres duplicados
-    contador = 1
-    nombre_original = nombre
-    while nombre in usuarios_conectados.values():
-        nombre = f"{nombre_original}_{contador}"
-        contador += 1
-    
-    usuarios_conectados[request.sid] = nombre
-    colores_usuario[request.sid] = obtener_color()
-    if avatar:
-        avatares_usuario[request.sid] = avatar
-    salas['general']['usuarios'].add(request.sid)
-    
-    join_room('general')
-    
-    # Notificar al nuevo usuario
-    emit('usuario_asignado', {
-        'nombre': nombre,
-        'color': colores_usuario[request.sid],
-        'avatar': avatar
-    })
-    
-    # Notificar a todos que alguien se unió
-    emit('sistema', {
-        'tipo': 'entrada',
-        'mensaje': f'📥 {nombre} se unió al chat',
-        'hora': obtener_hora(),
-        'usuarios_online': len(usuarios_conectados)
-    }, broadcast=True)
-    
-    # Enviar lista de usuarios conectados (con avatares)
-    emit('lista_usuarios', {
-        'usuarios': [
-            {
-                'nombre': usuarios_conectados[sid], 
-                'color': colores_usuario[sid],
-                'avatar': avatares_usuario.get(sid)
-            }
-            for sid in usuarios_conectados
-        ]
-    }, broadcast=True)
-    
-    logger.info(f'👤 Usuario registrado: {nombre} ({request.sid})')
+    try:
+        sid = request.sid
+        nombre = data.get('nombre', '').strip()
+        avatar = data.get('avatar')
+        
+        # Validar nombre
+        if not validar_nombre(nombre):
+            emit('error', {'message': 'Nombre inválido. Solo letras, números, _ y - permitidos (2-20 chars)'})
+            return
+        
+        # Rate limit en registro
+        if not check_rate_limit(f"reg_{sid}", 3, 10):
+            emit('error', {'message': 'Demasiados intentos'})
+            return
+        
+        # Limitar avatar (50KB)
+        if avatar and len(avatar) > 50000:
+            avatar = None
+        
+        # Registrar thread-safe
+        with usuarios_lock:
+            nombre = get_unique_name(nombre)
+            usuarios_conectados[sid] = nombre
+            colores_usuario[sid] = obtener_color()
+            if avatar:
+                avatares_usuario[sid] = avatar
+        
+        join_room('general')
+        
+        # Responder al nuevo usuario
+        emit('usuario_asignado', {
+            'nombre': nombre,
+            'color': colores_usuario[sid],
+            'avatar': avatar
+        })
+        
+        # Notificar a TODOS EXCEPTO al nuevo usuario que alguien se unió
+        emit('sistema', {
+            'mensaje': f'📥 {nombre} se unió al chat',
+            'hora': obtener_hora(),
+            'usuarios_online': len(usuarios_conectados)
+        }, room='general', broadcast=True, include_self=False)  # No enviar al propio usuario
+        
+        # Lista de usuarios
+        with usuarios_lock:
+            users = [
+                {'nombre': usuarios_conectados[s], 
+                 'color': colores_usuario[s],
+                 'avatar': avatares_usuario.get(s)}
+                for s in usuarios_conectados
+            ]
+        emit('lista_usuarios', {'usuarios': users}, room='general', broadcast=True)
+        
+        print(f'👤 Registrado: {nombre}')
+        
+    except Exception as e:
+        print(f'❌ Error registro: {e}')
+        emit('error', {'message': 'Error al registrar'})
 
 @socketio.on('mensaje')
 def manejar_mensaje(data):
-    sid = request.sid
-    if sid not in usuarios_conectados:
-        return
-    
-    mensaje = data.get('mensaje', '').strip()
-    if not mensaje:
-        return
-    
-    # Limitar longitud del mensaje
-    if len(mensaje) > 500:
-        mensaje = mensaje[:500] + '...'
-    
-    nombre = usuarios_conectados[sid]
-    color = colores_usuario[sid]
-    avatar = avatares_usuario.get(sid)  # Obtener avatar del usuario
-    
-    emit('nuevo_mensaje', {
-        'nombre': nombre,
-        'mensaje': mensaje,
-        'color': color,
-        'avatar': avatar,
-        'hora': obtener_hora(),
-        'tipo': 'normal'
-    }, broadcast=True)
-    
-    logger.info(f'💬 {nombre}: {mensaje[:50]}...' if len(mensaje) > 50 else f'💬 {nombre}: {mensaje}')
+    try:
+        sid = request.sid
+        
+        # Verificar usuario
+        with usuarios_lock:
+            nombre = usuarios_conectados.get(sid)
+            color = colores_usuario.get(sid)
+            avatar = avatares_usuario.get(sid)
+        
+        if not nombre:
+            return
+        
+        # Rate limiting
+        if not check_rate_limit(sid, 5, 5):
+            emit('error', {'message': 'Mensajes muy rápido'})
+            return
+        
+        # Si avatar es muy grande, ignorarlo
+        if avatar and len(avatar) > 50000:
+            avatar = None
+        
+        mensaje = str(data.get('mensaje', '')).strip()[:500]
+        if not mensaje:
+            return
+        
+        emit('nuevo_mensaje', {
+            'nombre': nombre,
+            'mensaje': mensaje,
+            'color': color,
+            'avatar': avatar,
+            'hora': obtener_hora(),
+            'tipo': 'normal'
+        }, room='general', broadcast=True)  # Todos reciben incluyendo remitente (misma hora)
+        
+        print(f'💬 {nombre}: {mensaje[:30]}...')
+        
+    except Exception as e:
+        print(f'❌ Error mensaje: {e}')
 
 @socketio.on('escribiendo')
 def manejar_escribiendo(data):
     sid = request.sid
-    if sid not in usuarios_conectados:
-        return
-    
-    nombre = usuarios_conectados[sid]
-    esta_escribiendo = data.get('escribiendo', False)
-    
-    emit('usuario_escribiendo', {
-        'nombre': nombre,
-        'escribiendo': esta_escribiendo
-    }, broadcast=True, include_self=False)
+    with usuarios_lock:
+        nombre = usuarios_conectados.get(sid)
+    if nombre:
+        emit('usuario_escribiendo', {
+            'nombre': nombre,
+            'escribiendo': data.get('escribiendo', False)
+        }, room='general', broadcast=True, include_self=False)
 
 @socketio.on('disconnect')
 def manejar_desconexion():
     sid = request.sid
-    if sid in usuarios_conectados:
-        nombre = usuarios_conectados[sid]
-        del usuarios_conectados[sid]
+    
+    with usuarios_lock:
+        nombre = usuarios_conectados.pop(sid, None)
+        colores_usuario.pop(sid, None)
+        avatares_usuario.pop(sid, None)
+    
+    if nombre:
+        leave_room('general')
         
-        if sid in colores_usuario:
-            del colores_usuario[sid]
-        
-        if sid in avatares_usuario:
-            del avatares_usuario[sid]
-        
-        salas['general']['usuarios'].discard(sid)
-        
-        # Notificar salida
         emit('sistema', {
-            'tipo': 'salida',
-            'mensaje': f'📤 {nombre} salió del chat',
+            'mensaje': f'📤 {nombre} salió',
             'hora': obtener_hora(),
             'usuarios_online': len(usuarios_conectados)
-        }, broadcast=True)
+        }, room='general', broadcast=True)
         
-        # Actualizar lista
-        emit('lista_usuarios', {
-            'usuarios': [
-                {
-                    'nombre': usuarios_conectados[s], 
-                    'color': colores_usuario[s],
-                    'avatar': avatares_usuario.get(s)
-                }
+        with usuarios_lock:
+            users = [
+                {'nombre': usuarios_conectados[s], 
+                 'color': colores_usuario[s],
+                 'avatar': avatares_usuario.get(s)}
                 for s in usuarios_conectados
             ]
-        }, broadcast=True)
+        emit('lista_usuarios', {'usuarios': users}, room='general', broadcast=True)
         
-        logger.info(f'🔴 {nombre} desconectado')
+        print(f'🔴 {nombre} desconectado')
+
+@socketio.on_error_default
+def default_error_handler(e):
+    print(f'❌ Error: {e}')
 
 if __name__ == '__main__':
-    # Puerto desde variable de entorno (Render) o default 5001 (local)
     port = int(os.environ.get('PORT', 5001))
     
     print("=" * 60)
-    print("🚀 SERVIDOR DE MENSAJERÍA INSTANTÁNEA")
+    print("🚀 CHAT LOCAL - Versión Corregida (Thread-Safe)")
     print("=" * 60)
-    print("\n📚 Conceptos que demuestra esta aplicación:")
-    print("   • WebSocket: Comunicación bidireccional persistente")
-    print("   • Broadcasting: Envío masivo a todos los clientes")
-    print("   • Eventos en tiempo real: Mensajes instantáneos")
-    print("   • Manejo de estado: Usuarios online/escribiendo")
-    print("   • Concurrencia: Múltiples conexiones simultáneas")
-    print("   • HTTPS: Conexión cifrada SSL/TLS")
-    print("\n🌐 Servidor iniciado")
-    print(f"   Local:    http://localhost:{port}")
-    print(f"   Network:  http://0.0.0.0:{port}")
+    print(f"� URL: http://localhost:{port}")
+    print(f"🔒 Thread-safe: Sí (RLock)")
+    print(f"📊 Rate limiting: 5 msg / 5 seg")
+    print(f"🖼️  Max avatar: 50KB")
+    print(f"💻 100% Local - Sin servicios externos")
     print("=" * 60)
     
-    # En desarrollo local usar socketio.run, en producción Render usa gunicorn
     socketio.run(
-        app, 
-        host='0.0.0.0', 
-        port=port, 
+        app,
+        host='0.0.0.0',
+        port=port,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
+        log_output=False
     )

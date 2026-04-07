@@ -1,0 +1,719 @@
+/**
+ * CHAT STYLES - Responsabilidad: Presentación (View)
+ */
+
+/* ==========================================
+   RESET Y BASE
+   ========================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ==========================================
+   LAYOUT PRINCIPAL
+   ========================================== */
+.container {
+    width: 90%;
+    max-width: 800px;
+    height: 90vh;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    display: flex;
+    overflow: hidden;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ==========================================
+   SIDEBAR - USUARIOS MEJORADO
+   ========================================== */
+.sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, #075E54 0%, #064E45 100%);
+    color: white;
+    padding: 25px 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h2 {
+    font-size: 1.1rem;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    background: #00E676;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00E676;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(0.9); }
+}
+
+.user-list {
+    list-style: none;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.user-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.user-list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+}
+
+.user-item {
+    padding: 12px;
+    margin: 6px 0;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.user-item:hover {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateX(4px);
+}
+
+.user-item:active {
+    background: rgba(255,255,255,0.2);
+}
+
+.user-item .nombre {
+    font-weight: 500;
+    font-size: 0.95rem;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-item .estado {
+    width: 8px;
+    height: 8px;
+    background: #00E676;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00E676;
+}
+
+.user-number {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    font-weight: 600;
+    background: rgba(255,255,255,0.15);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* ==========================================
+   CHAT AREA
+   ========================================== */
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    background: #075E54;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-title {
+    font-size: 1.1rem;
+}
+
+.online-count {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.typing-indicator {
+    font-size: 0.85rem;
+    font-style: italic;
+    opacity: 0;
+    transition: opacity 0.15s;
+    height: 20px;
+}
+
+.typing-indicator.visible {
+    opacity: 1;
+}
+
+/* ==========================================
+   MESSAGES CONTAINER
+   ========================================== */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #e5ddd5;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%239C92AC' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+.messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.2);
+    border-radius: 3px;
+}
+
+/* ==========================================
+   MESSAGE GROUPS
+   ========================================== */
+.message-group {
+    margin: 8px 0 20px 0;
+    padding: 0 15px;
+}
+
+.message-group.own {
+    text-align: right;
+}
+
+.message-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: 0 5px;
+}
+
+.message-group.own .message-group-header {
+    justify-content: flex-end;
+}
+
+.group-sender-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.group-time {
+    font-size: 0.75rem;
+    color: #999;
+}
+
+/* ==========================================
+   MESSAGE BUBBLES
+   ========================================== */
+.message-bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    display: block;
+    text-align: left;
+    margin: 3px 0;
+    word-wrap: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    animation: slideIn 0.1s ease-out;
+    will-change: transform;
+}
+
+.message-group.own .message-bubble {
+    background: #DCF8C6;
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.message-group.other .message-bubble {
+    background: white;
+    margin-left: 0;
+    margin-right: auto;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Burbuja estados */
+.message-bubble.first { border-radius: 16px; }
+.message-bubble.middle { border-radius: 16px; }
+.message-bubble.last { border-radius: 16px; }
+.message-bubble.single { border-radius: 16px; }
+
+.message-group.other .message-bubble.first { border-top-left-radius: 4px; }
+.message-group.own .message-bubble.first { border-top-right-radius: 4px; }
+
+.message-group.other .message-bubble.middle { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+.message-group.own .message-bubble.middle { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+
+.message-group.other .message-bubble.last { border-bottom-left-radius: 4px; }
+.message-group.own .message-bubble.last { border-bottom-right-radius: 4px; }
+
+.message-group.other .message-bubble.single { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+.message-group.own .message-bubble.single { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+
+.bubble-content {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.bubble-text {
+    font-size: 0.95rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.bubble-time {
+    font-size: 0.7rem;
+    color: #666;
+    white-space: nowrap;
+    margin-top: 4px;
+}
+
+/* ==========================================
+   SYSTEM MESSAGES
+   ========================================== */
+.message.system {
+    background: rgba(0,0,0,0.08);
+    color: #555;
+    text-align: center;
+    font-size: 0.8rem;
+    max-width: 70%;
+    margin: 20px auto;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* ==========================================
+   INPUT AREA
+   ========================================== */
+.input-area {
+    background: #F0F0F0;
+    padding: 15px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.message-input {
+    flex: 1;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    outline: none;
+}
+
+.send-btn {
+    background: #075E54;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s, background 0.1s;
+}
+
+.send-btn:hover {
+    transform: scale(1.05);
+    background: #128C7E;
+}
+
+.send-btn:active {
+    transform: scale(0.95);
+}
+
+/* ==========================================
+   LOGIN OVERLAY
+   ========================================== */
+.login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.login-box {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    max-width: 400px;
+    width: 90%;
+}
+
+.login-box h1 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 1.5rem;
+}
+
+.login-box p {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+/* Info de Criptografía */
+.crypto-info {
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    border: 1px solid #667eea30;
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+}
+
+.crypto-icon {
+    font-size: 1.8rem;
+}
+
+.crypto-text {
+    font-size: 0.85rem;
+    color: #444;
+    line-height: 1.4;
+}
+
+.crypto-text small {
+    color: #666;
+    font-size: 0.75rem;
+}
+
+/* Info de Validación */
+.validation-info {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.validation-info small {
+    color: #555;
+    font-size: 0.8rem;
+    display: block;
+    margin: 2px 0;
+}
+
+/* ==========================================
+   AVATAR UPLOAD
+   ========================================== */
+.avatar-section {
+    margin-bottom: 25px;
+}
+
+.avatar-label {
+    display: block;
+    margin-bottom: 10px;
+    color: #555;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.avatar-upload {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 3px dashed #667eea;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.avatar-upload:hover {
+    border-color: #764ba2;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    transform: scale(1.05);
+}
+
+.avatar-upload:hover .avatar-placeholder,
+.avatar-upload:hover .avatar-text {
+    color: white;
+}
+
+.avatar-upload.has-image {
+    border-style: solid;
+    border-color: #10B981;
+    background: white;
+}
+
+.avatar-upload img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.avatar-placeholder {
+    font-size: 2.5rem;
+    color: #667eea;
+    transition: color 0.3s;
+}
+
+.avatar-text {
+    font-size: 0.75rem;
+    color: #667eea;
+    margin-top: 5px;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.avatar-hint {
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 8px;
+}
+
+.avatar-input {
+    display: none;
+}
+
+/* ==========================================
+   FORM ELEMENTS
+   ========================================== */
+.name-section {
+    margin-bottom: 25px;
+}
+
+.name-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: left;
+}
+
+.name-input {
+    width: 100%;
+    padding: 15px 20px;
+    border: 2px solid #E0E0E0;
+    border-radius: 12px;
+    font-size: 1rem;
+    text-align: center;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+}
+
+.name-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.join-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.join-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.join-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.error-message {
+    color: #EF4444;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    min-height: 20px;
+}
+
+/* ==========================================
+   AVATARS DISPLAY
+   ========================================== */
+.message-group-header .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.message-group.own .message-group-header {
+    flex-direction: row-reverse;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.user-item .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.user-item .avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+/* ==========================================
+   INFO BOX EDUCATIVO
+   ========================================== */
+.info-box {
+    background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
+    border: 1px solid #90CAF9;
+    border-radius: 12px;
+    margin: 15px 20px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.edu-header {
+    background: linear-gradient(135deg, #2196F3 0%, #9C27B0 100%);
+    color: white;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.edu-toggle {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.edu-toggle:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.edu-content {
+    padding: 12px 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.edu-content.collapsed {
+    display: none;
+}
+
+.edu-item {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.edu-item:last-child {
+    border-bottom: none;
+}
+
+.edu-item strong {
+    color: #1565C0;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.edu-item span {
+    color: #555;
+}

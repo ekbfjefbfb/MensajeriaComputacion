@@ -4,974 +4,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Demo: Mensajería Instantánea</title>
+    
+    <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .container {
-            width: 90%;
-            max-width: 800px;
-            height: 90vh;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            display: flex;
-            overflow: hidden;
-        }
-        
-        /* Panel lateral - Usuarios */
-        .sidebar {
-            width: 250px;
-            background: #075E54;
-            color: white;
-            padding: 20px;
-        }
-        
-        .sidebar h2 {
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background: #00C851;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .user-list {
-            list-style: none;
-        }
-        
-        .user-item {
-            padding: 10px;
-            margin: 5px 0;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-        
-        /* Área principal del chat */
-        .chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .chat-header {
-            background: #075E54;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .chat-title {
-            font-size: 1.1rem;
-        }
-        
-        .online-count {
-            font-size: 0.85rem;
-            opacity: 0.9;
-        }
-        
-        .typing-indicator {
-            font-size: 0.85rem;
-            font-style: italic;
-            opacity: 0;
-            transition: opacity 0.3s;
-            height: 20px;
-        }
-        
-        .typing-indicator.visible {
-            opacity: 1;
-        }
-        
-        /* Mensajes */
-        .messages-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: #e5ddd5;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%239C92AC' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
-        }
-        
-        .message {
-            max-width: 70%;
-            margin: 10px 0;
-            padding: 12px 15px;
-            border-radius: 15px;
-            position: relative;
-            word-wrap: break-word;
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .message.own {
-            background: #DCF8C6;
-            margin-left: auto;
-            border-bottom-right-radius: 5px;
-        }
-        
-        .message.other {
-            background: white;
-            margin-right: auto;
-            border-bottom-left-radius: 5px;
-        }
-        
-        .message.system {
-            background: rgba(0,0,0,0.1);
-            color: #666;
-            text-align: center;
-            font-size: 0.85rem;
-            max-width: 80%;
-            margin: 15px auto;
-        }
-        
-        .message-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 5px;
-        }
-        
-        .sender-name {
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-        
-        .message-time {
-            font-size: 0.75rem;
-            color: #999;
-            margin-left: auto;
-        }
-        
-        .message-text {
-            font-size: 0.95rem;
-            line-height: 1.4;
-        }
-        
-        /* Mensajes agrupados */
-        .message-group {
-            margin: 8px 0 20px 0;
-            padding: 0 15px;
-        }
-        
-        .message-group.own {
-            text-align: right;
-        }
-        
-        .message-group-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
-            padding: 0 5px;
-        }
-        
-        .message-group.own .message-group-header {
-            justify-content: flex-end;
-        }
-        
-        .group-sender-name {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        
-        .group-time {
-            font-size: 0.75rem;
-            color: #999;
-        }
-        
-        .message-bubble {
-            max-width: 75%;
-            padding: 10px 14px;
-            border-radius: 12px;
-            display: block;
-            text-align: left;
-            margin: 3px 0;
-            word-wrap: break-word;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        
-        .message-group.own .message-bubble {
-            background: #DCF8C6;
-            margin-left: auto;
-            margin-right: 0;
-        }
-        
-        .message-group.other .message-bubble {
-            background: white;
-            margin-left: 0;
-            margin-right: auto;
-        }
-        
-        /* Primera burbuja del grupo */
-        .message-bubble.first {
-            border-radius: 16px;
-        }
-        
-        .message-group.other .message-bubble.first {
-            border-top-left-radius: 4px;
-        }
-        
-        .message-group.own .message-bubble.first {
-            border-top-right-radius: 4px;
-        }
-        
-        /* Burbujas del medio */
-        .message-bubble.middle {
-            border-radius: 16px;
-        }
-        
-        .message-group.other .message-bubble.middle {
-            border-top-left-radius: 4px;
-            border-bottom-left-radius: 4px;
-        }
-        
-        .message-group.own .message-bubble.middle {
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-        
-        /* Última burbuja del grupo */
-        .message-bubble.last {
-            border-radius: 16px;
-        }
-        
-        .message-group.other .message-bubble.last {
-            border-bottom-left-radius: 4px;
-        }
-        
-        .message-group.own .message-bubble.last {
-            border-bottom-right-radius: 4px;
-        }
-        
-        /* Burbuja única */
-        .message-bubble.single {
-            border-radius: 16px;
-        }
-        
-        .message-group.other .message-bubble.single {
-            border-top-left-radius: 4px;
-            border-bottom-left-radius: 4px;
-        }
-        
-        .message-group.own .message-bubble.single {
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-        
-        .bubble-content {
-            display: flex;
-            align-items: flex-end;
-            gap: 8px;
-        }
-        
-        .bubble-text {
-            font-size: 0.95rem;
-            line-height: 1.4;
-            word-break: break-word;
-        }
-        
-        .bubble-time {
-            font-size: 0.7rem;
-            color: #666;
-            white-space: nowrap;
-            margin-top: 4px;
-        }
-        
-        /* Lista de usuarios ordenada */
-        .user-list {
-            list-style: none;
-        }
-        
-        .user-item {
-            padding: 10px;
-            margin: 5px 0;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: background 0.2s;
-        }
-        
-        .user-item:hover {
-            background: rgba(255,255,255,0.2);
-        }
-        
-        .user-number {
-            font-size: 0.75rem;
-            opacity: 0.7;
-            margin-left: auto;
-        }
-        .input-area {
-            background: #F0F0F0;
-            padding: 15px 20px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .message-input {
-            flex: 1;
-            border: none;
-            border-radius: 25px;
-            padding: 12px 20px;
-            font-size: 1rem;
-            outline: none;
-        }
-        
-        .send-btn {
-            background: #075E54;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 45px;
-            height: 45px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.2s, background 0.2s;
-        }
-        
-        .send-btn:hover {
-            transform: scale(1.1);
-            background: #128C7E;
-        }
-        
-        /* Pantalla de login */
-        .login-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        
-        .login-box {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 400px;
-            width: 90%;
-        }
-        
-        .login-box h1 {
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 1.5rem;
-        }
-        
-        .login-box p {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 0.9rem;
-        }
-        
-        .avatar-section {
-            margin-bottom: 25px;
-        }
-        
-        .avatar-label {
-            display: block;
-            margin-bottom: 10px;
-            color: #555;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-        
-        .avatar-upload {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border: 3px dashed #667eea;
-            overflow: hidden;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-        
-        .avatar-upload:hover {
-            border-color: #764ba2;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transform: scale(1.05);
-        }
-        
-        .avatar-upload:hover .avatar-placeholder,
-        .avatar-upload:hover .avatar-text {
-            color: white;
-        }
-        
-        .avatar-upload.has-image {
-            border-style: solid;
-            border-color: #10B981;
-            background: white;
-        }
-        
-        .avatar-upload img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        
-        .avatar-placeholder {
-            font-size: 2.5rem;
-            color: #667eea;
-            transition: color 0.3s;
-        }
-        
-        .avatar-text {
-            font-size: 0.75rem;
-            color: #667eea;
-            margin-top: 5px;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
-        
-        .avatar-hint {
-            font-size: 0.75rem;
-            color: #999;
-            margin-top: 8px;
-        }
-        
-        .avatar-input {
-            display: none;
-        }
-        
-        .name-section {
-            margin-bottom: 25px;
-        }
-        
-        .name-label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-align: left;
-        }
-        
-        .name-input {
-            width: 100%;
-            padding: 15px 20px;
-            border: 2px solid #E0E0E0;
-            border-radius: 12px;
-            font-size: 1rem;
-            text-align: center;
-            transition: border-color 0.3s;
-            box-sizing: border-box;
-        }
-        
-        .name-input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .name-input::placeholder {
-            color: #aaa;
-        }
-        
-        .join-btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .join-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-        }
-        
-        .join-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-        
-        .error-message {
-            color: #EF4444;
-            font-size: 0.85rem;
-            margin-top: 10px;
-            min-height: 20px;
-        }
-        
-        /* Avatar en mensajes */
-        .message-group-header .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-        
-        .message-group.own .message-group-header {
-            flex-direction: row-reverse;
-        }
-        
-        /* Avatar en sidebar */
-        .user-item .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-        
-        .user-item .avatar-placeholder {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
-        
-        /* Scrollbar */
-        .messages-container::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .messages-container::-webkit-scrollbar-thumb {
-            background: rgba(0,0,0,0.2);
-            border-radius: 3px;
-        }
-        
-        .info-box {
-            background: #E3F2FD;
-            border-left: 4px solid #2196F3;
-            padding: 10px 15px;
-            margin: 15px 20px;
-            border-radius: 5px;
-            font-size: 0.85rem;
-            color: #1565C0;
-        }
-    </style>
+    
+    <!-- Estilos externos -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
 </head>
 <body>
-    <!-- Pantalla de Login -->
+    <!-- ==========================================
+         LOGIN SCREEN (View)
+         ========================================== -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h1>💬 Chat en Tiempo Real</h1>
-            <p>Demo educativo de mensajería instantánea</p>
+            <p>Mensajería instantánea con WebSocket + Seguridad</p>
             
-            <!-- Sección de Foto -->
+            <!-- Info de Criptografía y Conceptos -->
+            <div class="crypto-info">
+                <div class="crypto-icon">🔐</div>
+                <div class="crypto-text">
+                    <strong>Conceptos Clave:</strong><br>
+                    <small>
+                        🔑 <b>Criptografía:</b> SSL/TLS cifra datos<br>
+                        🔌 <b>WebSocket:</b> Conexión persistente bidireccional<br>
+                        � <b>Broadcasting:</b> Un mensaje a todos<br>
+                        ⏱️ <b>Tiempo Real:</b> Sin delay, instantáneo
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Info de Validación -->
+            <div class="validation-info">
+                <small>✅ <b>Formato nombre:</b> Letras, números, _ y - | ❌ Sin espacios</small><br>
+                <small>✅ <b>Ejemplos:</b> Juan_Perez, Maria-2024, estudiante_1</small>
+            </div>
+            
+            <!-- Avatar Section -->
             <div class="avatar-section">
                 <label class="avatar-label">👤 Tu foto de perfil</label>
-                <div class="avatar-upload" id="avatarUpload" onclick="seleccionarAvatar()">
+                <div class="avatar-upload" id="avatarUpload">
                     <span class="avatar-placeholder" id="avatarPlaceholder">📷</span>
                     <span class="avatar-text">Click para subir</span>
                     <img id="avatarPreview" style="display: none;">
                 </div>
-                <input type="file" class="avatar-input" id="avatarInput" accept="image/*" onchange="cargarAvatar(event)">
-                <div class="avatar-hint">(Opcional, máx 2MB)</div>
+                <input type="file" class="avatar-input" id="avatarInput" accept="image/*">
+                <div class="avatar-hint">(Opcional, máx 500KB)</div>
             </div>
             
-            <!-- Sección de Nombre -->
+            <!-- Name Section -->
             <div class="name-section">
                 <label class="name-label">✏️ Tu nombre</label>
                 <input type="text" class="name-input" id="nameInput" 
                        placeholder="Escribe tu nombre aquí" maxlength="20">
             </div>
             
-            <button class="join-btn" id="joinBtn" onclick="unirseAlChat()">Entrar al Chat 🚀</button>
+            <button class="join-btn" id="joinBtn">Entrar al Chat 🚀</button>
             <div class="error-message" id="errorMessage"></div>
         </div>
     </div>
     
-    <!-- Aplicación Principal -->
+    <!-- ==========================================
+         CHAT APPLICATION (View)
+         ========================================== -->
     <div class="container hidden" id="chatApp">
-        <div class="sidebar">
+        <!-- Sidebar: User List -->
+        <aside class="sidebar">
             <h2>
                 <span class="status-dot"></span>
                 Usuarios Online
             </h2>
-            <ul class="user-list" id="userList">
-            </ul>
-        </div>
+            <ul class="user-list" id="userList"></ul>
+        </aside>
         
-        <div class="chat-area">
-            <div class="chat-header">
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <!-- Header -->
+            <header class="chat-header">
                 <div>
                     <div class="chat-title">💬 Sala General</div>
                     <div class="typing-indicator" id="typingIndicator"></div>
                 </div>
                 <div class="online-count" id="onlineCount">0 online</div>
+            </header>
+            
+            <!-- Info Box Educativo -->
+            <div class="info-box" id="eduPanel">
+                <div class="edu-header">
+                    <span>🔍 Conceptos en Acción</span>
+                    <button onclick="toggleEdu()" class="edu-toggle">−</button>
+                </div>
+                <div class="edu-content">
+                    <div class="edu-item">
+                        <strong>🔐 Criptografía SSL/TLS:</strong>
+                        <span>Cifrado de extremo a extremo. Tus mensajes viajan seguros.</span>
+                    </div>
+                    <div class="edu-item">
+                        <strong>🔌 WebSocket:</strong>
+                        <span>Conexión persistente. No es HTTP (request/response), es bidireccional continuo.</span>
+                    </div>
+                    <div class="edu-item">
+                        <strong>📡 Broadcasting:</strong>
+                        <span>Un mensaje tuyo → Servidor → Todos los clientes instantáneamente.</span>
+                    </div>
+                    <div class="edu-item">
+                        <strong>⚡ Tiempo Real:</strong>
+                        <span>Latencia < 100ms. Sin polling, sin refresh. Push instantáneo.</span>
+                    </div>
+                    <div class="edu-item">
+                        <strong>🧵 Thread-Safe:</strong>
+                        <span>RLock previene race conditions. Múltiples usuarios simultáneos sin conflictos.</span>
+                    </div>
+                </div>
             </div>
             
-            <div class="info-box">
-                <strong>🔍 Conceptos en acción:</strong> WebSocket, Broadcasting, 
-                Comunicación Bidireccional, Estados de Conexión
-            </div>
+            <!-- Messages -->
+            <div class="messages-container" id="messagesContainer"></div>
             
-            <div class="messages-container" id="messagesContainer">
-            </div>
-            
+            <!-- Input Area -->
             <div class="input-area">
                 <input type="text" class="message-input" id="messageInput" 
-                       placeholder="Escribe un mensaje..." 
-                       onkeypress="if(event.key==='Enter')enviarMensaje()"
-                       oninput="manejarEscritura()">
-                <button class="send-btn" onclick="enviarMensaje()">
-                    ➤
-                </button>
+                       placeholder="Escribe un mensaje...">
+                <button class="send-btn" id="sendBtn">➤</button>
             </div>
-        </div>
+        </main>
     </div>
     
-    <script>
-        let socket;
-        let miNombre = '';
-        let miColor = '';
-        let timeoutEscritura;
-        
-        let ultimoRemitente = null;
-        let ultimoGrupo = null;
-        let tiempoUltimoMensaje = 0;
-        
-        let miAvatar = null; // Base64 de la imagen
-        
-        function seleccionarAvatar() {
-            document.getElementById('avatarInput').click();
-        }
-        
-        function cargarAvatar(event) {
-            const file = event.target.files[0];
-            const errorDiv = document.getElementById('errorMessage');
-            
-            if (!file) return;
-            
-            // Validar tipo
-            if (!file.type.startsWith('image/')) {
-                errorDiv.textContent = '⚠️ Por favor selecciona una imagen válida';
-                return;
-            }
-            
-            // Validar tamaño (2MB)
-            if (file.size > 2 * 1024 * 1024) {
-                errorDiv.textContent = '⚠️ La imagen debe ser menor a 2MB';
-                return;
-            }
-            
-            errorDiv.textContent = '';
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                miAvatar = e.target.result;
-                document.getElementById('avatarPreview').src = miAvatar;
-                document.getElementById('avatarPreview').style.display = 'block';
-                document.getElementById('avatarPlaceholder').style.display = 'none';
-                document.querySelector('.avatar-text').style.display = 'none';
-                document.getElementById('avatarUpload').classList.add('has-image');
-            };
-            reader.onerror = function() {
-                errorDiv.textContent = '⚠️ Error al cargar la imagen';
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        function unirseAlChat() {
-            const nombre = document.getElementById('nameInput').value.trim();
-            const errorDiv = document.getElementById('errorMessage');
-            const btn = document.getElementById('joinBtn');
-            
-            // Validación
-            if (!nombre) {
-                errorDiv.textContent = '⚠️ Por favor escribe tu nombre para entrar';
-                document.getElementById('nameInput').focus();
-                return;
-            }
-            
-            if (nombre.length < 2) {
-                errorDiv.textContent = '⚠️ El nombre debe tener al menos 2 caracteres';
-                return;
-            }
-            
-            errorDiv.textContent = '';
-            btn.disabled = true;
-            btn.textContent = 'Conectando...';
-            
-            // Conectar WebSocket
-            socket = io();
-            
-            // Eventos de Socket
-            socket.on('connect', () => {
-                console.log('✅ Conectado al servidor WebSocket');
-                socket.emit('registrar_usuario', { 
-                    nombre: nombre,
-                    avatar: miAvatar
-                });
-            });
-            
-            socket.on('usuario_asignado', (data) => {
-                miNombre = data.nombre;
-                miColor = data.color;
-                if (data.avatar) {
-                    miAvatar = data.avatar;
-                }
-                
-                // Mostrar chat
-                document.getElementById('loginOverlay').classList.add('hidden');
-                document.getElementById('chatApp').classList.remove('hidden');
-                document.getElementById('messageInput').focus();
-                
-                agregarMensajeSistema(`🎉 ¡Bienvenido ${miNombre}!`);
-            });
-            
-            socket.on('connect_error', (error) => {
-                console.error('Error de conexión:', error);
-                document.getElementById('errorMessage').textContent = '⚠️ Error al conectar con el servidor';
-                btn.disabled = false;
-                btn.textContent = 'Entrar al Chat 🚀';
-            });
-            
-            socket.on('nuevo_mensaje', (data) => {
-                agregarMensaje(data);
-            });
-            
-            socket.on('sistema', (data) => {
-                agregarMensajeSistema(data.mensaje);
-                document.getElementById('onlineCount').textContent = 
-                    `${data.usuarios_online} online`;
-            });
-            
-            socket.on('lista_usuarios', (data) => {
-                actualizarListaUsuarios(data.usuarios);
-            });
-            
-            socket.on('usuario_escribiendo', (data) => {
-                mostrarEscritura(data);
-            });
-            
-            socket.on('disconnect', () => {
-                agregarMensajeSistema('⚠️ Desconectado del servidor');
-            });
-        }
-        
-        function enviarMensaje() {
-            const input = document.getElementById('messageInput');
-            const mensaje = input.value.trim();
-            
-            if (!mensaje || !socket) return;
-            
-            // Enviar al servidor
-            socket.emit('mensaje', { mensaje: mensaje });
-            
-            // Mostrar localmente
-            agregarMensaje({
-                nombre: miNombre,
-                mensaje: mensaje,
-                color: miColor,
-                avatar: miAvatar,
-                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                tipo: 'normal'
-            }, true);
-            
-            input.value = '';
-            socket.emit('escribiendo', { escribiendo: false });
-        }
-        
-        function agregarMensaje(data, esPropio = false) {
-            const container = document.getElementById('messagesContainer');
-            const ahora = Date.now();
-            const mismoRemitente = ultimoRemitente === data.nombre;
-            const tiempoCercano = (ahora - tiempoUltimoMensaje) < 60000; // 1 minuto
-            
-            // Crear nuevo grupo si es diferente remitente o pasó mucho tiempo
-            if (!mismoRemitente || !tiempoCercano) {
-                // Marcar último mensaje del grupo anterior
-                if (ultimoGrupo) {
-                    const burbujas = ultimoGrupo.querySelectorAll('.message-bubble');
-                    if (burbujas.length === 1) {
-                        burbujas[0].classList.remove('first', 'middle');
-                        burbujas[0].classList.add('single');
-                    } else {
-                        burbujas[burbujas.length - 1].classList.remove('first', 'middle');
-                        burbujas[burbujas.length - 1].classList.add('last');
-                    }
-                }
-                
-                // Crear nuevo grupo
-                ultimoGrupo = document.createElement('div');
-                ultimoGrupo.className = `message-group ${esPropio ? 'own' : 'other'}`;
-                
-                const avatarHtml = data.avatar 
-                    ? `<img src="${data.avatar}" class="avatar" alt="${data.nombre}">`
-                    : `<div class="user-avatar" style="background: ${data.color}20; color: ${data.color}">${data.nombre.charAt(0).toUpperCase()}</div>`;
-                
-                ultimoGrupo.innerHTML = `
-                    <div class="message-group-header">
-                        ${avatarHtml}
-                        <span class="group-sender-name" style="color: ${data.color}">${data.nombre}</span>
-                        <span class="group-time">${data.hora}</span>
-                    </div>
-                `;
-                container.appendChild(ultimoGrupo);
-                ultimoRemitente = data.nombre;
-            }
-            
-            // Agregar burbuja al grupo actual
-            const burbuja = document.createElement('div');
-            burbuja.className = 'message-bubble first';
-            burbuja.innerHTML = `
-                <div class="bubble-content">
-                    <span class="bubble-text">${escapeHtml(data.mensaje)}</span>
-                    <span class="bubble-time">${data.hora}</span>
-                </div>
-            `;
-            ultimoGrupo.appendChild(burbuja);
-            
-            // Marcar burbujas anteriores como "middle" o quitar "first"
-            const todasBurbujas = ultimoGrupo.querySelectorAll('.message-bubble');
-            if (todasBurbujas.length > 1) {
-                // La anterior ya no es "first", es "middle" (a menos que sea la última)
-                todasBurbujas[todasBurbujas.length - 2].classList.remove('first');
-                todasBurbujas[todasBurbujas.length - 2].classList.add('middle');
-            }
-            
-            tiempoUltimoMensaje = ahora;
-            container.scrollTop = container.scrollHeight;
-        }
-        
-        function agregarMensajeSistema(texto) {
-            // Resetear grupo al ver mensaje del sistema
-            ultimoRemitente = null;
-            ultimoGrupo = null;
-            
-            const container = document.getElementById('messagesContainer');
-            const div = document.createElement('div');
-            div.className = 'message system';
-            div.style.margin = '15px auto';
-            div.textContent = texto;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-        
-        function actualizarListaUsuarios(usuarios) {
-            // Ordenar alfabéticamente
-            usuarios.sort((a, b) => a.nombre.localeCompare(b.nombre));
-            
-            const lista = document.getElementById('userList');
-            lista.innerHTML = usuarios.map((u, index) => {
-                const avatarHtml = u.avatar 
-                    ? `<img src="${u.avatar}" class="avatar" alt="${u.nombre}">`
-                    : `<div class="avatar-placeholder" style="background: ${u.color}40; color: ${u.color}">${u.nombre.charAt(0).toUpperCase()}</div>`;
-                
-                return `
-                <li class="user-item" title="${u.nombre}">
-                    ${avatarHtml}
-                    <span>${u.nombre}</span>
-                    <span class="user-number">#${index + 1}</span>
-                </li>
-            `}).join('');
-        }
-        
-        function manejarEscritura() {
-            if (!socket) return;
-            
-            socket.emit('escribiendo', { escribiendo: true });
-            
-            clearTimeout(timeoutEscritura);
-            timeoutEscritura = setTimeout(() => {
-                socket.emit('escribiendo', { escribiendo: false });
-            }, 1000);
-        }
-        
-        function mostrarEscritura(data) {
-            const indicator = document.getElementById('typingIndicator');
-            if (data.escribiendo) {
-                indicator.textContent = `✏️ ${data.nombre} está escribiendo...`;
-                indicator.classList.add('visible');
-            } else {
-                indicator.classList.remove('visible');
-            }
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        // Permitir Enter en login
-        document.getElementById('nameInput')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') unirseAlChat();
-        });
-    </script>
+    <!-- JavaScript Module -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
 </body>
 </html>
