@@ -26,7 +26,9 @@ const State = {
     timeoutEscritura: null,
     ultimoRemitente: null,
     ultimoGrupo: null,
-    tiempoUltimoMensaje: 0
+    tiempoUltimoMensaje: 0,
+    chatPrivado: null,  // { nombre: string, sid: string } - null si es chat grupal
+    mensajesPrivados: {}  // { nombreUsuario: [mensajes] }
 };
 
 // ==========================================
@@ -50,10 +52,11 @@ const Utils = {
     },
 
     validarNombre(nombre) {
-        // Solo letras (incluyendo acentos), números, _ y - 
-        // NO espacios, NO símbolos especiales
-        const regex = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]+$/;
-        return regex.test(nombre);
+        // Solo letras (incluyendo acentos), números y ESPACIOS
+        // NO al inicio con espacio, NO símbolos especiales _, -, @, etc
+        // Debe empezar con letra o número
+        const regex = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$/;
+        return regex.test(nombre) && nombre.trim().length >= 2 && nombre.length <= 20;
     }
 };
 
@@ -145,10 +148,29 @@ const ConnectionModule = {
         socket.on('usuario_asignado', (data) => this.handleAssigned(data));
         socket.on('connect_error', (error) => this.handleError(error));
         socket.on('error', (data) => Utils.mostrarError('⚠️ ' + (data.message || 'Error')));
-        socket.on('nuevo_mensaje', (data) => MessageModule.agregar(data));
-        socket.on('sistema', (data) => this.handleSystem(data));
+        socket.on('nuevo_mensaje', (data) => {
+            // Solo procesar mensajes grupales si no estamos en chat privado
+            if (!State.chatPrivado) {
+                MessageModule.agregar(data);
+            }
+        });
+        socket.on('sistema', (data) => {
+            if (!State.chatPrivado) {
+                this.handleSystem(data);
+            }
+        });
         socket.on('lista_usuarios', (data) => UserModule.actualizarLista(data.usuarios));
-        socket.on('usuario_escribiendo', (data) => TypingModule.mostrar(data));
+        socket.on('usuario_escribiendo', (data) => {
+            if (!State.chatPrivado) {
+                TypingModule.mostrar(data);
+            }
+        });
+        
+        // Mensajes privados
+        socket.on('mensaje_privado', (data) => PrivateChatModule.recibirMensaje(data));
+        socket.on('mensaje_privado_enviado', (data) => {
+            console.log('✅ Mensaje privado enviado');
+        });
     },
 
     handleAssigned(data) {
@@ -179,10 +201,14 @@ const ConnectionModule = {
 };
 
 // ==========================================
-// MÓDULO: USUARIOS
+// MÓDULO: USUARIOS (con chat privado)
 // ==========================================
 const UserModule = {
+    usuariosLista: [],
+    mensajesNoLeidos: {},  // { nombreUsuario: count }
+
     actualizarLista(usuarios) {
+        this.usuariosLista = usuarios;
         usuarios.sort((a, b) => a.nombre.localeCompare(b.nombre));
 
         const html = usuarios.map((u, index) => {
@@ -190,17 +216,148 @@ const UserModule = {
                 ? `<img src="${u.avatar}" class="avatar" alt="${u.nombre}">`
                 : `<div class="avatar-placeholder" style="background: ${u.color}40; color: ${u.color}">${u.nombre.charAt(0).toUpperCase()}</div>`;
 
+            const noLeidos = this.mensajesNoLeidos[u.nombre] || 0;
+            const badgeHtml = noLeidos > 0 ? `<span class="msg-badge">${noLeidos}</span>` : '';
+            const activeClass = State.chatPrivado?.nombre === u.nombre ? 'active-chat' : '';
+            const hasNewClass = noLeidos > 0 ? 'has-new-message' : '';
+
             return `
-                <li class="user-item" title="${u.nombre}">
+                <li class="user-item ${activeClass} ${hasNewClass}" 
+                    onclick="PrivateChatModule.iniciar('${u.nombre}', '${u.sid || ''}')"
+                    title="${noLeidos > 0 ? noLeidos + ' mensaje(s) nuevo(s)' : 'Click para chat privado'}">
                     ${avatarHtml}
                     <span class="nombre">${u.nombre}</span>
                     <span class="estado"></span>
-                    <span class="user-number">#${index + 1}</span>
+                    ${badgeHtml}
                 </li>
             `;
         }).join('');
 
         document.getElementById('userList').innerHTML = html;
+    },
+
+    agregarMensajeNoLeido(nombre) {
+        if (!this.mensajesNoLeidos[nombre]) {
+            this.mensajesNoLeidos[nombre] = 0;
+        }
+        this.mensajesNoLeidos[nombre]++;
+        this.actualizarLista(this.usuariosLista);
+    },
+
+    limpiarMensajesNoLeidos(nombre) {
+        delete this.mensajesNoLeidos[nombre];
+        this.actualizarLista(this.usuariosLista);
+    },
+
+    getSid(nombre) {
+        const usuario = this.usuariosLista.find(u => u.nombre === nombre);
+        return usuario?.sid;
+    }
+};
+
+// ==========================================
+// MÓDULO: CHAT PRIVADO (uno a uno)
+// ==========================================
+const PrivateChatModule = {
+    iniciar(nombre, sid) {
+        if (nombre === State.miNombre) {
+            Utils.mostrarError('⚠️ No puedes chatear contigo mismo');
+            return;
+        }
+
+        State.chatPrivado = { nombre, sid };
+        
+        // Limpiar mensajes no leídos de este usuario
+        UserModule.limpiarMensajesNoLeidos(nombre);
+        
+        // Actualizar UI
+        this.actualizarUI();
+        
+        // Cargar mensajes previos si existen
+        this.cargarMensajes(nombre);
+        
+        console.log(`🔒 Chat privado iniciado con: ${nombre}`);
+    },
+
+    cerrar() {
+        State.chatPrivado = null;
+        this.actualizarUI();
+        
+        // Volver a chat grupal
+        document.getElementById('messagesContainer').innerHTML = '';
+        State.ultimoRemitente = null;
+        State.ultimoGrupo = null;
+    },
+
+    actualizarUI() {
+        const chatTitle = document.getElementById('chatTitle');
+        const chatSubtitle = document.getElementById('chatSubtitle');
+        const closeBtn = document.getElementById('closePrivateBtn');
+        const input = document.getElementById('messageInput');
+        
+        if (State.chatPrivado) {
+            chatTitle.textContent = `🔒 ${State.chatPrivado.nombre}`;
+            chatSubtitle.textContent = 'Chat privado - Solo tú y esta persona';
+            closeBtn.classList.remove('hidden');
+            input.placeholder = `Mensaje para ${State.chatPrivado.nombre}...`;
+        } else {
+            chatTitle.textContent = '💬 Sala General';
+            chatSubtitle.textContent = 'Chat grupal - Todos pueden ver';
+            closeBtn.classList.add('hidden');
+            input.placeholder = 'Escribe un mensaje...';
+        }
+        
+        // Refrescar lista para mostrar activo
+        if (UserModule.usuariosLista.length > 0) {
+            UserModule.actualizarLista(UserModule.usuariosLista);
+        }
+    },
+
+    cargarMensajes(nombre) {
+        const container = document.getElementById('messagesContainer');
+        container.innerHTML = '';
+        State.ultimoRemitente = null;
+        State.ultimoGrupo = null;
+
+        const mensajes = State.mensajesPrivados[nombre] || [];
+
+        mensajes.forEach(msg => {
+            MessageModule.agregar(msg, msg.nombre === State.miNombre);
+        });
+
+        container.scrollTop = container.scrollHeight;
+    },
+
+    recibirMensaje(data) {
+        const { nombre, mensaje, color, avatar, hora, remitente } = data;
+        
+        // Guardar en historial
+        if (!State.mensajesPrivados[remitente]) {
+            State.mensajesPrivados[remitente] = [];
+        }
+        
+        State.mensajesPrivados[remitente].push({
+            nombre: remitente,
+            mensaje,
+            color,
+            avatar,
+            hora,
+            esPrivado: true
+        });
+
+        // Si estamos en chat privado con este usuario, mostrar
+        if (State.chatPrivado?.nombre === remitente) {
+            MessageModule.agregar({
+                nombre: remitente,
+                mensaje,
+                color,
+                avatar,
+                hora
+            }, false);
+        } else {
+            // Agregar al contador de mensajes no leídos
+            UserModule.agregarMensajeNoLeido(remitente);
+        }
     }
 };
 
@@ -219,10 +376,41 @@ const MessageModule = {
 
         input.value = '';
 
-        // Solo enviar al servidor - el mensaje se mostrará cuando el servidor lo reenvíe
-        // (para que todos los clientes vean el mismo mensaje con la misma hora)
-        State.socket.emit('mensaje', { mensaje: mensaje });
-        State.socket.emit('escribiendo', { escribiendo: false });
+        if (State.chatPrivado) {
+            // Enviar mensaje privado
+            const destinatarioSid = UserModule.getSid(State.chatPrivado.nombre);
+            if (destinatarioSid) {
+                State.socket.emit('mensaje_privado', {
+                    mensaje: mensaje,
+                    destinatario_sid: destinatarioSid
+                });
+                
+                // Mostrar localmente en el chat privado
+                MessageModule.agregar({
+                    nombre: State.miNombre,
+                    mensaje: mensaje,
+                    color: State.miColor,
+                    avatar: State.miAvatar,
+                    hora: Utils.obtenerHora()
+                }, true);
+                
+                // Guardar en historial
+                if (!State.mensajesPrivados[State.chatPrivado.nombre]) {
+                    State.mensajesPrivados[State.chatPrivado.nombre] = [];
+                }
+                State.mensajesPrivados[State.chatPrivado.nombre].push({
+                    nombre: State.miNombre,
+                    mensaje: mensaje,
+                    color: State.miColor,
+                    avatar: State.miAvatar,
+                    hora: Utils.obtenerHora()
+                });
+            }
+        } else {
+            // Enviar mensaje grupal
+            State.socket.emit('mensaje', { mensaje: mensaje });
+            State.socket.emit('escribiendo', { escribiendo: false });
+        }
     },
 
     agregar(data, esPropio = false) {
@@ -321,10 +509,20 @@ const TypingModule = {
 
     mostrar(data) {
         const indicator = document.getElementById('typingIndicator');
+        if (!indicator) return;
+        
+        // Solo mostrar en chat grupal
+        if (State.chatPrivado) {
+            indicator.textContent = '';
+            indicator.classList.remove('visible');
+            return;
+        }
+        
         if (data.escribiendo) {
             indicator.textContent = `✏️ ${data.nombre} está escribiendo...`;
             indicator.classList.add('visible');
         } else {
+            indicator.textContent = '';
             indicator.classList.remove('visible');
         }
     }
@@ -348,7 +546,7 @@ const LoginModule = {
         }
 
         if (!Utils.validarNombre(nombre)) {
-            Utils.mostrarError('⚠️ Solo letras, números, _ y - permitidos');
+            Utils.mostrarError('⚠️ Solo letras, números y espacios. Empezar con letra/número. Máx 20 chars');
             return;
         }
 

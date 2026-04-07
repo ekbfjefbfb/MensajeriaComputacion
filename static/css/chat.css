@@ -129,35 +129,106 @@ body {
     box-shadow: 0 0 8px #00E676;
 }
 
-.user-number {
+/* Badge de mensajes no leídos */
+.msg-badge {
+    background: #FF5252;
+    color: white;
     font-size: 0.7rem;
-    opacity: 0.6;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    margin-left: auto;
+    animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Usuario con chat activo */
+.user-item.active-chat {
+    background: rgba(102, 126, 234, 0.25) !important;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+}
+
+.user-item.active-chat .nombre {
+    color: #fff;
     font-weight: 600;
-    background: rgba(255,255,255,0.15);
-    padding: 2px 8px;
-    border-radius: 10px;
+}
+
+/* Usuario con mensajes nuevos */
+.user-item.has-new-message {
+    background: rgba(255, 82, 82, 0.15) !important;
+    border-color: rgba(255, 82, 82, 0.5) !important;
+    animation: highlight-new 2s ease-in-out;
+}
+
+@keyframes highlight-new {
+    0%, 100% { background: rgba(255, 82, 82, 0.15); }
+    50% { background: rgba(255, 82, 82, 0.3); }
 }
 
 /* ==========================================
-   CHAT AREA
+   CHAT HEADER MEJORADO
    ========================================== */
-.chat-area {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
 .chat-header {
-    background: #075E54;
+    background: linear-gradient(135deg, #075E54 0%, #064E45 100%);
     color: white;
-    padding: 15px 20px;
+    padding: 12px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
+.chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.chat-title-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .chat-title {
     font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.chat-subtitle {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.close-private-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.4rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.close-private-btn:hover {
+    background: rgba(255,255,255,0.25);
+    transform: scale(1.05);
 }
 
 .online-count {
@@ -166,11 +237,10 @@ body {
 }
 
 .typing-indicator {
-    font-size: 0.85rem;
-    font-style: italic;
+    font-size: 0.8rem;
     opacity: 0;
-    transition: opacity 0.15s;
-    height: 20px;
+    transition: opacity 0.2s;
+    height: 18px;
 }
 
 .typing-indicator.visible {
@@ -432,6 +502,66 @@ body {
 }
 
 .crypto-text small {
+    color: #666;
+    font-size: 0.75rem;
+}
+
+.user-item.active-chat {
+    background: rgba(102, 126, 234, 0.3) !important;
+    border-color: #667eea !important;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.4);
+}
+
+.user-item.has-new-message {
+    animation: pulse-new 2s infinite;
+    border-color: #10B981 !important;
+}
+
+@keyframes pulse-new {
+    0%, 100% { box-shadow: 0 0 5px #10B981; }
+    50% { box-shadow: 0 0 15px #10B981; }
+}
+
+/* Botón cerrar chat privado */
+.close-private-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    margin-left: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.close-private-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* Header de chat privado */
+.private-chat-header {
+    background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+    border: 1px solid #667eea40;
+    border-radius: 12px;
+    padding: 10px 15px;
+    margin: 10px 15px;
+    text-align: center;
+}
+
+.private-chat-header span {
+    display: block;
+    font-weight: 600;
+    color: #667eea;
+    font-size: 0.9rem;
+}
+
+.private-chat-header small {
     color: #666;
     font-size: 0.75rem;
 }

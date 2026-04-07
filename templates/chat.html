@@ -36,8 +36,9 @@
             
             <!-- Info de Validación -->
             <div class="validation-info">
-                <small>✅ <b>Formato nombre:</b> Letras, números, _ y - | ❌ Sin espacios</small><br>
-                <small>✅ <b>Ejemplos:</b> Juan_Perez, Maria-2024, estudiante_1</small>
+                <small>✅ <b>Formato:</b> Letras, números y espacios (no al inicio)</small><br>
+                <small>❌ <b>No permitido:</b> _ - @ # $ símbolos</small><br>
+                <small>✅ <b>Ejemplos:</b> Juan Perez, Maria 2024, estudiante 1</small>
             </div>
             
             <!-- Avatar Section -->
@@ -81,9 +82,13 @@
         <main class="chat-area">
             <!-- Header -->
             <header class="chat-header">
-                <div>
-                    <div class="chat-title">💬 Sala General</div>
-                    <div class="typing-indicator" id="typingIndicator"></div>
+                <div class="chat-header-info">
+                    <div class="chat-title-wrapper">
+                        <div class="chat-title" id="chatTitle">💬 Sala General</div>
+                        <div class="chat-subtitle" id="chatSubtitle">Chat grupal - Todos pueden ver</div>
+                        <div class="typing-indicator" id="typingIndicator"></div>
+                    </div>
+                    <button id="closePrivateBtn" class="close-private-btn hidden" onclick="PrivateChatModule.cerrar()" title="Volver al chat grupal">×</button>
                 </div>
                 <div class="online-count" id="onlineCount">0 online</div>
             </header>

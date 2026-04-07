@@ -12,12 +12,15 @@ import threading
 import time
 from collections import defaultdict, deque
 
-# Validación de nombre
-NOMBRE_REGEX = re.compile(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ_-]+$')
+# Validación de nombre - letras, números, espacios (no al inicio)
+NOMBRE_REGEX = re.compile(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$')
 
 def validar_nombre(nombre):
-    """Valida que el nombre solo contenga caracteres permitidos"""
-    if not nombre or len(nombre) < 2 or len(nombre) > 20:
+    """Valida que el nombre solo contenga letras, números y espacios (no al inicio)"""
+    if not nombre:
+        return False
+    nombre = nombre.strip()
+    if len(nombre) < 2 or len(nombre) > 20:
         return False
     return NOMBRE_REGEX.match(nombre) is not None
 
@@ -105,7 +108,7 @@ def registrar_usuario(data):
         
         # Validar nombre
         if not validar_nombre(nombre):
-            emit('error', {'message': 'Nombre inválido. Solo letras, números, _ y - permitidos (2-20 chars)'})
+            emit('error', {'message': 'Nombre inválido. Solo letras, números y espacios. No empezar con espacio (2-20 chars)'})
             return
         
         # Rate limit en registro
@@ -141,12 +144,13 @@ def registrar_usuario(data):
             'usuarios_online': len(usuarios_conectados)
         }, room='general', broadcast=True, include_self=False)  # No enviar al propio usuario
         
-        # Lista de usuarios
+        # Lista de usuarios (con sids para chat privado)
         with usuarios_lock:
             users = [
                 {'nombre': usuarios_conectados[s], 
                  'color': colores_usuario[s],
-                 'avatar': avatares_usuario.get(s)}
+                 'avatar': avatares_usuario.get(s),
+                 'sid': s}
                 for s in usuarios_conectados
             ]
         emit('lista_usuarios', {'usuarios': users}, room='general', broadcast=True)
@@ -197,6 +201,56 @@ def manejar_mensaje(data):
         
     except Exception as e:
         print(f'❌ Error mensaje: {e}')
+
+@socketio.on('mensaje_privado')
+def manejar_mensaje_privado(data):
+    """Maneja mensajes privados entre dos usuarios"""
+    try:
+        sid = request.sid
+        
+        with usuarios_lock:
+            remitente = usuarios_conectados.get(sid)
+            remitente_color = colores_usuario.get(sid)
+            remitente_avatar = avatares_usuario.get(sid)
+        
+        if not remitente:
+            return
+        
+        destinatario_sid = data.get('destinatario_sid')
+        mensaje = str(data.get('mensaje', '')).strip()[:500]
+        
+        if not mensaje or not destinatario_sid:
+            return
+        
+        # Rate limiting
+        if not check_rate_limit(f"priv_{sid}", 10, 5):
+            emit('error', {'message': 'Mensajes privados muy rápido'})
+            return
+        
+        hora_actual = obtener_hora()
+        
+        # Enviar al destinatario
+        emit('mensaje_privado', {
+            'nombre': remitente,
+            'mensaje': mensaje,
+            'color': remitente_color,
+            'avatar': remitente_avatar,
+            'hora': hora_actual,
+            'remitente': remitente,
+            'esPrivado': True
+        }, room=destinatario_sid)
+        
+        # Confirmar al remitente
+        emit('mensaje_privado_enviado', {
+            'destinatario_sid': destinatario_sid,
+            'mensaje': mensaje,
+            'hora': hora_actual
+        })
+        
+        print(f'🔒 Mensaje privado de {remitente} a {destinatario_sid[:8]}...: {mensaje[:30]}...')
+        
+    except Exception as e:
+        print(f'❌ Error mensaje privado: {e}')
 
 @socketio.on('escribiendo')
 def manejar_escribiendo(data):
