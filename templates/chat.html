@@ -93,33 +93,14 @@
                 <div class="online-count" id="onlineCount">0 online</div>
             </header>
             
-            <!-- Info Box Educativo -->
-            <div class="info-box" id="eduPanel">
-                <div class="edu-header">
-                    <span>🔍 Conceptos en Acción</span>
-                    <button onclick="toggleEdu()" class="edu-toggle">−</button>
+            <!-- Info Técnica - Minimalista -->
+            <div class="info-box collapsed" id="eduPanel">
+                <div class="edu-header" onclick="toggleEdu()">
+                    <span>ℹ️ Técnico</span>
+                    <button class="edu-toggle">+</button>
                 </div>
-                <div class="edu-content">
-                    <div class="edu-item">
-                        <strong>🔐 Criptografía SSL/TLS:</strong>
-                        <span>Cifrado de extremo a extremo. Tus mensajes viajan seguros.</span>
-                    </div>
-                    <div class="edu-item">
-                        <strong>🔌 WebSocket:</strong>
-                        <span>Conexión persistente. No es HTTP (request/response), es bidireccional continuo.</span>
-                    </div>
-                    <div class="edu-item">
-                        <strong>📡 Broadcasting:</strong>
-                        <span>Un mensaje tuyo → Servidor → Todos los clientes instantáneamente.</span>
-                    </div>
-                    <div class="edu-item">
-                        <strong>⚡ Tiempo Real:</strong>
-                        <span>Latencia < 100ms. Sin polling, sin refresh. Push instantáneo.</span>
-                    </div>
-                    <div class="edu-item">
-                        <strong>🧵 Thread-Safe:</strong>
-                        <span>RLock previene race conditions. Múltiples usuarios simultáneos sin conflictos.</span>
-                    </div>
+                <div class="edu-content collapsed">
+                    <div class="edu-item">🔐 SSL/TLS • 🔌 WebSocket • 📡 Broadcast • ⚡ &lt;100ms</div>
                 </div>
             </div>
             

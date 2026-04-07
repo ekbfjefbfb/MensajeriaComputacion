@@ -297,12 +297,12 @@ const PrivateChatModule = {
         
         if (State.chatPrivado) {
             chatTitle.textContent = `🔒 ${State.chatPrivado.nombre}`;
-            chatSubtitle.textContent = 'Chat privado - Solo tú y esta persona';
+            chatSubtitle.textContent = 'Privado';
             closeBtn.classList.remove('hidden');
-            input.placeholder = `Mensaje para ${State.chatPrivado.nombre}...`;
+            input.placeholder = `Para ${State.chatPrivado.nombre}...`;
         } else {
             chatTitle.textContent = '💬 Sala General';
-            chatSubtitle.textContent = 'Chat grupal - Todos pueden ver';
+            chatSubtitle.textContent = 'Grupal';
             closeBtn.classList.add('hidden');
             input.placeholder = 'Escribe un mensaje...';
         }
@@ -320,7 +320,7 @@ const PrivateChatModule = {
         State.ultimoGrupo = null;
 
         const mensajes = State.mensajesPrivados[nombre] || [];
-
+        
         mensajes.forEach(msg => {
             MessageModule.agregar(msg, msg.nombre === State.miNombre);
         });
@@ -385,26 +385,21 @@ const MessageModule = {
                     destinatario_sid: destinatarioSid
                 });
                 
-                // Mostrar localmente en el chat privado
-                MessageModule.agregar({
-                    nombre: State.miNombre,
-                    mensaje: mensaje,
-                    color: State.miColor,
-                    avatar: State.miAvatar,
-                    hora: Utils.obtenerHora()
-                }, true);
-                
-                // Guardar en historial
+                // Guardar en historial localmente (el servidor no reenvía al remitente)
                 if (!State.mensajesPrivados[State.chatPrivado.nombre]) {
                     State.mensajesPrivados[State.chatPrivado.nombre] = [];
                 }
-                State.mensajesPrivados[State.chatPrivado.nombre].push({
+                const msgData = {
                     nombre: State.miNombre,
                     mensaje: mensaje,
                     color: State.miColor,
                     avatar: State.miAvatar,
                     hora: Utils.obtenerHora()
-                });
+                };
+                State.mensajesPrivados[State.chatPrivado.nombre].push(msgData);
+                
+                // Mostrar localmente
+                MessageModule.agregar(msgData, true);
             }
         } else {
             // Enviar mensaje grupal
