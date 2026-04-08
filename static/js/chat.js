@@ -306,15 +306,14 @@ const MessageModule = {
         // En privado, solo mostrar si NO es global, o si se especifico. En este modulo: 
         // Ya filtramos qué agregar en los eventos.
         const container = document.getElementById('messagesContainer');
-        const ahora = Date.now();
         const mismoRemitente = State.ultimoRemitente === data.nombre;
-        const tiempoCercano = (ahora - State.tiempoUltimoMensaje) < CONFIG.MESSAGE_GROUP_TIME;
+        const mismaHora = State.ultimaHoraMensaje === data.hora;
 
-        if (!mismoRemitente || !tiempoCercano) {
+        if (!mismoRemitente || !mismaHora) {
             this.crearNuevoGrupo(data, esPropio, container);
         }
         this.agregarBurbuja(data);
-        State.tiempoUltimoMensaje = ahora;
+        State.ultimaHoraMensaje = data.hora;
         if (!historico) Utils.scrollToBottom();
     },
     crearNuevoGrupo(data, esPropio, container) {
