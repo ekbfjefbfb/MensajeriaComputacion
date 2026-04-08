@@ -283,7 +283,7 @@ def manejar_escribiendo(data):
         }, room='general', broadcast=True, include_self=False)
 
 @socketio.on('disconnect')
-def manejar_desconexion():
+def manejar_desconexion(*args, **kwargs):
     sid = request.sid
     
     with usuarios_lock:
