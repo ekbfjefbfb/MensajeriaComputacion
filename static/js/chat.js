@@ -225,17 +225,20 @@ const PrivateChatModule = {
         const subtitle = document.getElementById('chatSubtitle');
         const closeBtn = document.getElementById('closePrivateBtn');
         const input = document.getElementById('messageInput');
+        const globalBtn = document.getElementById('btnGlobalChat');
         
         if (State.chatPrivado) {
             title.textContent = State.chatPrivado.nombre;
             subtitle.textContent = "Chat Privado Directo";
             closeBtn.classList.remove('hidden');
             input.placeholder = `Escribe a ${State.chatPrivado.nombre}...`;
+            if (globalBtn) globalBtn.classList.remove('active-chat');
         } else {
             title.textContent = "Computación 1";
             subtitle.textContent = "Sala principal global";
             closeBtn.classList.add('hidden');
             input.placeholder = "Escribe un mensaje...";
+            if (globalBtn) globalBtn.classList.add('active-chat');
         }
         if(UserModule.usuariosLista.length) UserModule.actualizarLista(UserModule.usuariosLista);
     },
