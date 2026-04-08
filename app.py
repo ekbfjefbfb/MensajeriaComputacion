@@ -2,6 +2,9 @@
 Servidor de Mensajería Instantánea - Versión Corregida (Local Only)
 Sin servicios de terceros - Todo en memoria local
 """
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime
@@ -45,9 +48,10 @@ socketio = SocketIO(
 
 # Almacenamiento thread-safe en memoria
 usuarios_lock = threading.RLock()
-usuarios_conectados = {}  # sid -> {nombre, color, avatar}
+usuarios_conectados = {}  # sid -> nombre
 colores_usuario = {}
 avatares_usuario = {}
+tokens_usuario = {} # sid -> token_unico
 rate_limit_lock = threading.Lock()
 rate_limits = defaultdict(lambda: deque(maxlen=10))  # sid -> deque de timestamps
 
@@ -78,26 +82,40 @@ def check_rate_limit(sid, max_msgs=5, window=5):
         history.append(now)
         return True
 
-def reclamar_nombre(nombre, sid):
-    """Reclama un nombre, expulsando la sesión fantasma anterior si existe"""
+def gestionar_nombre_y_token(nombre, sid, token_cliente):
+    """
+    Control de colisiones avanzado:
+    Si el token coincide, reclama la sesión (reconectando).
+    Si el token es nuevo pero el nombre existe, usa alias (_1, _2).
+    """
     with usuarios_lock:
         base = nombre[:20].strip()
         if not base:
             base = "Usuario"
         
         viejo_sid = None
-        for s, n in list(usuarios_conectados.items()):
-            if n == base:
+        for s, t in list(tokens_usuario.items()):
+            if t == token_cliente:
                 viejo_sid = s
                 break
                 
         if viejo_sid:
-            # Limpiamos el rastro del viejo para que este nuevo sid lo ocupe
+            # Reclamo legítimo de un ghost
             usuarios_conectados.pop(viejo_sid, None)
             colores_usuario.pop(viejo_sid, None)
             avatares_usuario.pop(viejo_sid, None)
+            tokens_usuario.pop(viejo_sid, None)
+            return base
             
-        return base
+        # Es un usuario nuevo. Verificar colisión de nombre.
+        existing_names = set(usuarios_conectados.values())
+        if base not in existing_names:
+            return base
+            
+        counter = 1
+        while f"{base}_{counter}" in existing_names:
+            counter += 1
+        return f"{base}_{counter}"
 
 @app.route('/')
 def index():
@@ -128,11 +146,14 @@ def registrar_usuario(data):
         if avatar and len(avatar) > 50000:
             avatar = None
         
-        # Registrar thread-safe reclamando el nombre
+        token_cliente = data.get('token', '')
+        
+        # Registrar thread-safe
         with usuarios_lock:
-            nombre = reclamar_nombre(nombre, sid)
+            nombre = gestionar_nombre_y_token(nombre, sid, token_cliente)
             usuarios_conectados[sid] = nombre
             colores_usuario[sid] = obtener_color()
+            tokens_usuario[sid] = token_cliente
             if avatar:
                 avatares_usuario[sid] = avatar
         
@@ -290,6 +311,7 @@ def manejar_desconexion(*args, **kwargs):
         nombre = usuarios_conectados.pop(sid, None)
         colores_usuario.pop(sid, None)
         avatares_usuario.pop(sid, None)
+        tokens_usuario.pop(sid, None)
         
         # Limpieza activa de RAM para evitar memory leaks (crashes a largo plazo)
         with rate_limit_lock:

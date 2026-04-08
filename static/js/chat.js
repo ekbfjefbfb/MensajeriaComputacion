@@ -4,7 +4,7 @@
 
 const CONFIG = {
     MAX_MESSAGE_LENGTH: 500,
-    MAX_AVATAR_SIZE_KB: 500,
+    MAX_AVATAR_SIZE_KB: 40,
     AVATAR_QUALITY: 0.7,
     AVATAR_MAX_SIZE: 150,
     TYPING_TIMEOUT: 1200,
@@ -16,6 +16,7 @@ const State = {
     miNombre: '',
     miColor: '',
     miAvatar: null,
+    miToken: null,
     timeoutEscritura: null,
     ultimoRemitente: null,
     ultimoGrupo: null,
@@ -379,6 +380,13 @@ const LoginModule = {
         if (!nombre || nombre.length < 2) return Utils.mostrarError('Mínimo 2 caracteres');
         if (nombre.length > 20) return Utils.mostrarError('Máximo 20 caracteres');
         if (!Utils.validarNombre(nombre)) return Utils.mostrarError('Solo letras y números');
+
+        let deviceToken = localStorage.getItem('deviceToken');
+        if (!deviceToken) {
+            deviceToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('deviceToken', deviceToken);
+        }
+        State.miToken = deviceToken;
 
         localStorage.setItem('chatToken', nombre);
         document.getElementById('joinBtn').disabled = true;
