@@ -290,6 +290,12 @@ def manejar_desconexion():
         nombre = usuarios_conectados.pop(sid, None)
         colores_usuario.pop(sid, None)
         avatares_usuario.pop(sid, None)
+        
+        # Limpieza activa de RAM para evitar memory leaks (crashes a largo plazo)
+        with rate_limit_lock:
+            rate_limits.pop(sid, None)
+            rate_limits.pop(f"reg_{sid}", None)
+            rate_limits.pop(f"priv_{sid}", None)
     
     if nombre:
         leave_room('general')
