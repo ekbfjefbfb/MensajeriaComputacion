@@ -59,12 +59,15 @@
             <div class="sidebar-header">
                 <h2>Salas Reales</h2>
             </div>
-            <div class="global-channel-container" style="padding: 0 12px; margin-bottom: 5px;">
-                <li class="user-item active-chat" id="btnGlobalChat" onclick="PrivateChatModule.cerrar()">
+            <ul class="user-list" style="padding: 0 12px; margin-bottom: 5px; flex: none;">
+                <li class="user-item active-chat" id="btnGlobalChat" onclick="PrivateChatModule.cerrar()" style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3);">
                     <div class="avatar-placeholder" style="background: var(--accent); color: white;">#</div>
-                    <span class="nombre" style="font-weight: bold;">Computación 1</span>
+                    <div style="display: flex; flex-direction: column;">
+                        <span class="nombre" style="font-weight: 700; color: white; font-size: 0.95rem;">Computación 1</span>
+                        <span style="font-size: 0.7rem; color: var(--online);">Sala General</span>
+                    </div>
                 </li>
-            </div>
+            </ul>
             
             <div class="sidebar-header" style="padding-top: 10px; border-top: 1px solid var(--border-color);">
                 <h2>Directorio</h2>

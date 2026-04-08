@@ -21,6 +21,7 @@ const State = {
     ultimoGrupo: null,
     tiempoUltimoMensaje: 0,
     chatPrivado: null,
+    mensajesGlobales: [],
     mensajesPrivados: {}
 };
 
@@ -127,9 +128,10 @@ const ConnectionModule = {
 
         socket.on('historial_mensajes', (data) => {
             if(data.mensajes) {
+                State.mensajesGlobales = [...data.mensajes]; // Guardar historial
                 data.mensajes.forEach(msg => {
                     const isOwn = msg.nombre === State.miNombre;
-                    MessageModule.agregar(msg, isOwn, true);
+                    MessageModule.agregar(msg, isOwn, true, true);
                 });
                 Utils.scrollToBottom();
             }
@@ -141,8 +143,13 @@ const ConnectionModule = {
         });
 
         socket.on('nuevo_mensaje', (data) => {
+            State.mensajesGlobales.push(data); // Añadir siempre al historial global
             if (!State.chatPrivado) {
-                MessageModule.agregar(data, data.nombre === State.miNombre);
+                MessageModule.agregar(data, data.nombre === State.miNombre, false, true);
+            } else {
+                // Indicador de mensaje nuevo en sala general si está en privado (Opcional, minimal)
+                const globalBtn = document.getElementById('btnGlobalChat');
+                if (globalBtn) globalBtn.style.animation = 'pulse 1.5s 2';
             }
         });
 
@@ -216,9 +223,11 @@ const PrivateChatModule = {
         document.getElementById('messagesContainer').innerHTML = '';
         State.ultimoRemitente = null;
         State.ultimoGrupo = null;
-        // Peticion implicita de recargar el historial (simplificado recargando app o informando via WS)
-        // Para simplificar: mostramos q volvio al general.
-        MessageModule.agregarSistema("Volviste a la sala grupal.");
+        // Restaurar sala global
+        State.mensajesGlobales.forEach(msg => {
+            MessageModule.agregar(msg, msg.nombre === State.miNombre, true, true);
+        });
+        Utils.scrollToBottom();
     },
     actualizarUI() {
         const title = document.getElementById('chatTitle');
@@ -292,7 +301,9 @@ const MessageModule = {
             State.socket.emit('escribiendo', { escribiendo: false });
         }
     },
-    agregar(data, esPropio = false, historico = false) {
+    agregar(data, esPropio = false, historico = false, esGlobal = false) {
+        // En privado, solo mostrar si NO es global, o si se especifico. En este modulo: 
+        // Ya filtramos qué agregar en los eventos.
         const container = document.getElementById('messagesContainer');
         const ahora = Date.now();
         const mismoRemitente = State.ultimoRemitente === data.nombre;
