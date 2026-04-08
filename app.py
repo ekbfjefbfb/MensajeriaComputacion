@@ -12,6 +12,10 @@ import threading
 import time
 from collections import defaultdict, deque
 
+# Configuración y almacenamiento de chat
+HISTORIAL_MAX = 100
+historial_mensajes = deque(maxlen=HISTORIAL_MAX) # Almacena historial grupal para nuevos usuarios
+
 # Validación de nombre - letras, números, espacios (no al inicio)
 NOMBRE_REGEX = re.compile(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$')
 
@@ -32,7 +36,6 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'demo-local-secreta')
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*",
-    async_mode='threading',  # Usa threading nativo de Python
     logger=False,  # Sin logs excesivos
     engineio_logger=False,
     ping_timeout=30,
@@ -155,6 +158,11 @@ def registrar_usuario(data):
             ]
         emit('lista_usuarios', {'usuarios': users}, room='general', broadcast=True)
         
+        # Enviar historial al nuevo usuario solamente
+        with usuarios_lock:
+            history_list = list(historial_mensajes)
+        emit('historial_mensajes', {'mensajes': history_list})
+        
         print(f'👤 Registrado: {nombre}')
         
     except Exception as e:
@@ -188,14 +196,20 @@ def manejar_mensaje(data):
         if not mensaje:
             return
         
-        emit('nuevo_mensaje', {
+        msg_response = {
             'nombre': nombre,
             'mensaje': mensaje,
             'color': color,
             'avatar': avatar,
             'hora': obtener_hora(),
             'tipo': 'normal'
-        }, room='general', broadcast=True)  # Todos reciben incluyendo remitente (misma hora)
+        }
+        
+        # Guardar en el historial grupal
+        with usuarios_lock:
+            historial_mensajes.append(msg_response)
+            
+        emit('nuevo_mensaje', msg_response, room='general', broadcast=True)  # Todos reciben incluyendo remitente (misma hora)
         
         print(f'💬 {nombre}: {mensaje[:30]}...')
         

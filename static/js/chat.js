@@ -1,23 +1,16 @@
 /**
- * CHAT MODULE - Arquitectura MVC
- * Responsabilidad: Lógica del chat (Controller)
+ * CHAT MODULE - Controlador (Premium Dark Mode)
  */
 
-// ==========================================
-// CONFIGURACIÓN
-// ==========================================
 const CONFIG = {
     MAX_MESSAGE_LENGTH: 500,
     MAX_AVATAR_SIZE_KB: 500,
     AVATAR_QUALITY: 0.7,
-    AVATAR_MAX_SIZE: 200,
-    TYPING_TIMEOUT: 1000,
-    MESSAGE_GROUP_TIME: 30000 // 30 segundos
+    AVATAR_MAX_SIZE: 150,
+    TYPING_TIMEOUT: 1200,
+    MESSAGE_GROUP_TIME: 60000 // 1 minute to group messages
 };
 
-// ==========================================
-// ESTADO GLOBAL
-// ==========================================
 const State = {
     socket: null,
     miNombre: '',
@@ -27,58 +20,44 @@ const State = {
     ultimoRemitente: null,
     ultimoGrupo: null,
     tiempoUltimoMensaje: 0,
-    chatPrivado: null,  // { nombre: string, sid: string } - null si es chat grupal
-    mensajesPrivados: {}  // { nombreUsuario: [mensajes] }
+    chatPrivado: null,
+    mensajesPrivados: {}
 };
 
-// ==========================================
-// UTILIDADES
-// ==========================================
 const Utils = {
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     },
-
-    obtenerHora() {
-        return new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    },
-
     mostrarError(mensaje) {
         const errorDiv = document.getElementById('errorMessage');
         errorDiv.textContent = mensaje;
         setTimeout(() => errorDiv.textContent = '', 5000);
     },
-
     validarNombre(nombre) {
-        // Solo letras (incluyendo acentos), números y ESPACIOS
-        // NO al inicio con espacio, NO símbolos especiales _, -, @, etc
-        // Debe empezar con letra o número
         const regex = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$/;
         return regex.test(nombre) && nombre.trim().length >= 2 && nombre.length <= 20;
+    },
+    scrollToBottom() {
+        const c = document.getElementById('messagesContainer');
+        c.scrollTop = c.scrollHeight;
     }
 };
 
-// ==========================================
-// MÓDULO: AVATAR
-// ==========================================
 const AvatarModule = {
     seleccionar() {
         document.getElementById('avatarInput').click();
     },
-
     cargar(event) {
         const file = event.target.files[0];
         if (!file) return;
-
         if (!file.type.startsWith('image/')) {
             Utils.mostrarError('⚠️ Selecciona una imagen válida');
             return;
         }
-
         if (file.size > CONFIG.MAX_AVATAR_SIZE_KB * 1024) {
-            Utils.mostrarError(`⚠️ La imagen debe ser menor a ${CONFIG.MAX_AVATAR_SIZE_KB}KB`);
+            Utils.mostrarError(`⚠️ Máximo ${CONFIG.MAX_AVATAR_SIZE_KB}KB`);
             return;
         }
 
@@ -86,13 +65,11 @@ const AvatarModule = {
         reader.onload = (e) => this.procesarImagen(e.target.result);
         reader.readAsDataURL(file);
     },
-
     procesarImagen(dataUrl) {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-
             let { width, height } = img;
             if (width > height) {
                 if (width > CONFIG.AVATAR_MAX_SIZE) {
@@ -105,7 +82,6 @@ const AvatarModule = {
                     height = CONFIG.AVATAR_MAX_SIZE;
                 }
             }
-
             canvas.width = width;
             canvas.height = height;
             ctx.drawImage(img, 0, 0, width, height);
@@ -115,338 +91,226 @@ const AvatarModule = {
         };
         img.src = dataUrl;
     },
-
     actualizarUI() {
         document.getElementById('avatarPreview').src = State.miAvatar;
         document.getElementById('avatarPreview').style.display = 'block';
         document.getElementById('avatarPlaceholder').style.display = 'none';
-        document.querySelector('.avatar-text').style.display = 'none';
-        document.getElementById('avatarUpload').classList.add('has-image');
+        document.getElementById('avatarUpload').style.borderColor = 'var(--accent)';
     }
 };
 
-// ==========================================
-// MÓDULO: CONEXIÓN
-// ==========================================
 const ConnectionModule = {
     conectar(nombre) {
         State.socket = io();
         this.setupEventHandlers();
     },
-
     setupEventHandlers() {
         const socket = State.socket;
-
         socket.on('connect', () => {
-            console.log('✅ Conectado');
             socket.emit('registrar_usuario', {
                 nombre: document.getElementById('nameInput').value.trim(),
                 avatar: State.miAvatar
             });
         });
 
-        socket.on('usuario_asignado', (data) => this.handleAssigned(data));
-        socket.on('connect_error', (error) => this.handleError(error));
-        socket.on('error', (data) => Utils.mostrarError('⚠️ ' + (data.message || 'Error')));
+        socket.on('usuario_asignado', (data) => {
+            State.miNombre = data.nombre;
+            State.miColor = data.color;
+            State.miAvatar = data.avatar || State.miAvatar;
+            document.getElementById('loginOverlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('chatApp').classList.remove('hidden');
+                document.getElementById('messageInput').focus();
+            }, 400);
+        });
+
+        socket.on('historial_mensajes', (data) => {
+            if(data.mensajes) {
+                data.mensajes.forEach(msg => {
+                    const isOwn = msg.nombre === State.miNombre;
+                    MessageModule.agregar(msg, isOwn, true);
+                });
+                Utils.scrollToBottom();
+            }
+        });
+
+        socket.on('error', (data) => {
+            Utils.mostrarError('⚠️ ' + (data.message || 'Error'));
+            document.getElementById('joinBtn').disabled = false;
+        });
+
         socket.on('nuevo_mensaje', (data) => {
-            // Solo procesar mensajes grupales si no estamos en chat privado
             if (!State.chatPrivado) {
-                MessageModule.agregar(data);
+                MessageModule.agregar(data, data.nombre === State.miNombre);
             }
         });
+
         socket.on('sistema', (data) => {
-            if (!State.chatPrivado) {
-                this.handleSystem(data);
-            }
+            if (!State.chatPrivado) MessageModule.agregarSistema(data.mensaje);
+            document.getElementById('onlineCount').textContent = data.usuarios_online;
         });
+
         socket.on('lista_usuarios', (data) => UserModule.actualizarLista(data.usuarios));
-        socket.on('usuario_escribiendo', (data) => {
-            if (!State.chatPrivado) {
-                TypingModule.mostrar(data);
-            }
-        });
         
-        // Mensajes privados
-        socket.on('mensaje_privado', (data) => PrivateChatModule.recibirMensaje(data));
-        socket.on('mensaje_privado_enviado', (data) => {
-            console.log('✅ Mensaje privado enviado');
+        socket.on('usuario_escribiendo', (data) => {
+            if (!State.chatPrivado) TypingModule.mostrar(data);
         });
-    },
 
-    handleAssigned(data) {
-        console.log('✅ Registrado:', data);
-        State.miNombre = data.nombre;
-        State.miColor = data.color;
-        State.miAvatar = data.avatar || State.miAvatar;
-
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('chatApp').classList.remove('hidden');
-        document.getElementById('messageInput').focus();
-
-        // No mostrar mensaje local - esperar mensaje del servidor
-        // para mantener consistencia entre todos los usuarios
-    },
-
-    handleError(error) {
-        console.error('❌ Error:', error);
-        Utils.mostrarError('⚠️ Error al conectar. Intenta de nuevo.');
-        document.getElementById('joinBtn').disabled = false;
-        document.getElementById('joinBtn').textContent = 'Reintentar 🚀';
-    },
-
-    handleSystem(data) {
-        MessageModule.agregarSistema(data.mensaje);
-        document.getElementById('onlineCount').textContent = `${data.usuarios_online} online`;
+        // Privados
+        socket.on('mensaje_privado', (data) => PrivateChatModule.recibirMensaje(data));
     }
 };
 
-// ==========================================
-// MÓDULO: USUARIOS (con chat privado)
-// ==========================================
 const UserModule = {
     usuariosLista: [],
-    mensajesNoLeidos: {},  // { nombreUsuario: count }
+    mensajesNoLeidos: {},
 
     actualizarLista(usuarios) {
-        this.usuariosLista = usuarios;
-        usuarios.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        this.usuariosLista = usuarios.filter(u => u.nombre !== State.miNombre); // Ocultar a sÍ mismo
+        this.usuariosLista.sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-        const html = usuarios.map((u, index) => {
+        const html = this.usuariosLista.map(u => {
             const avatarHtml = u.avatar
-                ? `<img src="${u.avatar}" class="avatar" alt="${u.nombre}">`
-                : `<div class="avatar-placeholder" style="background: ${u.color}40; color: ${u.color}">${u.nombre.charAt(0).toUpperCase()}</div>`;
-
+                ? `<img src="${u.avatar}" class="avatar" alt="A">`
+                : `<div class="avatar-placeholder" style="background: ${u.color}30; color: ${u.color}">${u.nombre.charAt(0).toUpperCase()}</div>`;
             const noLeidos = this.mensajesNoLeidos[u.nombre] || 0;
             const badgeHtml = noLeidos > 0 ? `<span class="msg-badge">${noLeidos}</span>` : '';
             const activeClass = State.chatPrivado?.nombre === u.nombre ? 'active-chat' : '';
-            const hasNewClass = noLeidos > 0 ? 'has-new-message' : '';
 
             return `
-                <li class="user-item ${activeClass} ${hasNewClass}" 
-                    onclick="PrivateChatModule.iniciar('${u.nombre}', '${u.sid || ''}')"
-                    title="${noLeidos > 0 ? noLeidos + ' mensaje(s) nuevo(s)' : 'Click para chat privado'}">
+                <li class="user-item ${activeClass}" onclick="PrivateChatModule.iniciar('${u.nombre}', '${u.sid || ''}')">
                     ${avatarHtml}
                     <span class="nombre">${u.nombre}</span>
-                    <span class="estado"></span>
                     ${badgeHtml}
                 </li>
             `;
         }).join('');
-
         document.getElementById('userList').innerHTML = html;
+        document.getElementById('onlineCount').textContent = (this.usuariosLista.length + 1).toString();
     },
-
     agregarMensajeNoLeido(nombre) {
-        if (!this.mensajesNoLeidos[nombre]) {
-            this.mensajesNoLeidos[nombre] = 0;
-        }
+        if (!this.mensajesNoLeidos[nombre]) this.mensajesNoLeidos[nombre] = 0;
         this.mensajesNoLeidos[nombre]++;
         this.actualizarLista(this.usuariosLista);
     },
-
     limpiarMensajesNoLeidos(nombre) {
         delete this.mensajesNoLeidos[nombre];
         this.actualizarLista(this.usuariosLista);
     },
-
     getSid(nombre) {
-        const usuario = this.usuariosLista.find(u => u.nombre === nombre);
-        return usuario?.sid;
+        return this.usuariosLista.find(u => u.nombre === nombre)?.sid;
     }
 };
 
-// ==========================================
-// MÓDULO: CHAT PRIVADO (uno a uno)
-// ==========================================
 const PrivateChatModule = {
     iniciar(nombre, sid) {
-        if (nombre === State.miNombre) {
-            Utils.mostrarError('⚠️ No puedes chatear contigo mismo');
-            return;
-        }
-
         State.chatPrivado = { nombre, sid };
-        
-        // Limpiar mensajes no leídos de este usuario
         UserModule.limpiarMensajesNoLeidos(nombre);
-        
-        // Actualizar UI
         this.actualizarUI();
-        
-        // Cargar mensajes previos si existen
         this.cargarMensajes(nombre);
-        
-        console.log(`🔒 Chat privado iniciado con: ${nombre}`);
     },
-
     cerrar() {
         State.chatPrivado = null;
         this.actualizarUI();
-        
-        // Volver a chat grupal
         document.getElementById('messagesContainer').innerHTML = '';
         State.ultimoRemitente = null;
         State.ultimoGrupo = null;
+        // Peticion implicita de recargar el historial (simplificado recargando app o informando via WS)
+        // Para simplificar: mostramos q volvio al general.
+        MessageModule.agregarSistema("Volviste a la sala grupal.");
     },
-
     actualizarUI() {
-        const chatTitle = document.getElementById('chatTitle');
-        const chatSubtitle = document.getElementById('chatSubtitle');
+        const title = document.getElementById('chatTitle');
+        const subtitle = document.getElementById('chatSubtitle');
         const closeBtn = document.getElementById('closePrivateBtn');
         const input = document.getElementById('messageInput');
         
         if (State.chatPrivado) {
-            chatTitle.textContent = `🔒 ${State.chatPrivado.nombre}`;
-            chatSubtitle.textContent = 'Privado';
+            title.textContent = State.chatPrivado.nombre;
+            subtitle.textContent = "Chat Privado Directo";
             closeBtn.classList.remove('hidden');
-            input.placeholder = `Para ${State.chatPrivado.nombre}...`;
+            input.placeholder = `Escribe a ${State.chatPrivado.nombre}...`;
         } else {
-            chatTitle.textContent = '💬 Sala General';
-            chatSubtitle.textContent = 'Grupal';
+            title.textContent = "Computación 1";
+            subtitle.textContent = "Sala principal global";
             closeBtn.classList.add('hidden');
-            input.placeholder = 'Escribe un mensaje...';
+            input.placeholder = "Escribe un mensaje...";
         }
-        
-        // Refrescar lista para mostrar activo
-        if (UserModule.usuariosLista.length > 0) {
-            UserModule.actualizarLista(UserModule.usuariosLista);
-        }
+        if(UserModule.usuariosLista.length) UserModule.actualizarLista(UserModule.usuariosLista);
     },
-
     cargarMensajes(nombre) {
         const container = document.getElementById('messagesContainer');
         container.innerHTML = '';
         State.ultimoRemitente = null;
         State.ultimoGrupo = null;
-
         const mensajes = State.mensajesPrivados[nombre] || [];
-        
-        mensajes.forEach(msg => {
-            MessageModule.agregar(msg, msg.nombre === State.miNombre);
-        });
-
-        container.scrollTop = container.scrollHeight;
+        mensajes.forEach(msg => MessageModule.agregar(msg, msg.nombre === State.miNombre));
+        Utils.scrollToBottom();
     },
-
     recibirMensaje(data) {
-        const { nombre, mensaje, color, avatar, hora, remitente } = data;
-        
-        // Guardar en historial
-        if (!State.mensajesPrivados[remitente]) {
-            State.mensajesPrivados[remitente] = [];
-        }
-        
-        State.mensajesPrivados[remitente].push({
-            nombre: remitente,
-            mensaje,
-            color,
-            avatar,
-            hora,
-            esPrivado: true
-        });
+        const { remitente } = data;
+        if (!State.mensajesPrivados[remitente]) State.mensajesPrivados[remitente] = [];
+        State.mensajesPrivados[remitente].push(data);
 
-        // Si estamos en chat privado con este usuario, mostrar
         if (State.chatPrivado?.nombre === remitente) {
-            MessageModule.agregar({
-                nombre: remitente,
-                mensaje,
-                color,
-                avatar,
-                hora
-            }, false);
+            MessageModule.agregar(data, false);
+            Utils.scrollToBottom();
         } else {
-            // Agregar al contador de mensajes no leídos
             UserModule.agregarMensajeNoLeido(remitente);
         }
     }
 };
 
-// ==========================================
-// MÓDULO: MENSAJES
-// ==========================================
 const MessageModule = {
     enviar() {
         const input = document.getElementById('messageInput');
         const mensaje = input.value.trim();
-
-        if (!mensaje || !State.socket) {
-            console.log('❌ No se puede enviar');
-            return;
-        }
-
+        if (!mensaje || !State.socket) return;
         input.value = '';
 
         if (State.chatPrivado) {
-            // Enviar mensaje privado
-            const destinatarioSid = UserModule.getSid(State.chatPrivado.nombre);
-            if (destinatarioSid) {
-                State.socket.emit('mensaje_privado', {
-                    mensaje: mensaje,
-                    destinatario_sid: destinatarioSid
-                });
-                
-                // Guardar en historial localmente (el servidor no reenvía al remitente)
-                if (!State.mensajesPrivados[State.chatPrivado.nombre]) {
-                    State.mensajesPrivados[State.chatPrivado.nombre] = [];
-                }
+            const destSid = UserModule.getSid(State.chatPrivado.nombre);
+            if (destSid) {
+                State.socket.emit('mensaje_privado', { mensaje, destinatario_sid: destSid });
                 const msgData = {
                     nombre: State.miNombre,
-                    mensaje: mensaje,
-                    color: State.miColor,
-                    avatar: State.miAvatar,
-                    hora: Utils.obtenerHora()
+                    mensaje, color: State.miColor, avatar: State.miAvatar, 
+                    hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    esPrivado: true
                 };
+                if (!State.mensajesPrivados[State.chatPrivado.nombre]) State.mensajesPrivados[State.chatPrivado.nombre] = [];
                 State.mensajesPrivados[State.chatPrivado.nombre].push(msgData);
-                
-                // Mostrar localmente
                 MessageModule.agregar(msgData, true);
+                Utils.scrollToBottom();
             }
         } else {
-            // Enviar mensaje grupal
-            State.socket.emit('mensaje', { mensaje: mensaje });
+            State.socket.emit('mensaje', { mensaje });
             State.socket.emit('escribiendo', { escribiendo: false });
         }
     },
-
-    agregar(data, esPropio = false) {
+    agregar(data, esPropio = false, historico = false) {
         const container = document.getElementById('messagesContainer');
         const ahora = Date.now();
         const mismoRemitente = State.ultimoRemitente === data.nombre;
         const tiempoCercano = (ahora - State.tiempoUltimoMensaje) < CONFIG.MESSAGE_GROUP_TIME;
 
         if (!mismoRemitente || !tiempoCercano) {
-            this.cerrarGrupoAnterior();
             this.crearNuevoGrupo(data, esPropio, container);
         }
-
         this.agregarBurbuja(data);
-
         State.tiempoUltimoMensaje = ahora;
-        container.scrollTop = container.scrollHeight;
+        if (!historico) Utils.scrollToBottom();
     },
-
-    cerrarGrupoAnterior() {
-        if (State.ultimoGrupo) {
-            const burbujas = State.ultimoGrupo.querySelectorAll('.message-bubble');
-            const count = burbujas.length;
-            if (count === 1) {
-                burbujas[0].className = 'message-bubble single';
-            } else if (count > 1) {
-                burbujas[count - 1].className = 'message-bubble last';
-            }
-        }
-    },
-
     crearNuevoGrupo(data, esPropio, container) {
         State.ultimoGrupo = document.createElement('div');
         State.ultimoGrupo.className = `message-group ${esPropio ? 'own' : 'other'}`;
-
         const avatarHtml = data.avatar
-            ? `<img src="${data.avatar}" class="avatar" alt="${data.nombre}" loading="eager">`
-            : `<div class="user-avatar" style="background: ${data.color}20; color: ${data.color}">${data.nombre.charAt(0).toUpperCase()}</div>`;
+            ? `<img src="${data.avatar}" class="avatar" alt="">`
+            : `<div class="avatar-placeholder avatar" style="background: ${data.color}30; color: ${data.color}; display:flex; justify-content:center; align-items:center; font-weight:bold">${data.nombre.charAt(0).toUpperCase()}</div>`;
 
         State.ultimoGrupo.innerHTML = `
-            <div class="message-group-header">
+            <div class="group-header">
                 ${avatarHtml}
                 <span class="group-sender-name" style="color: ${data.color}">${data.nombre}</span>
                 <span class="group-time">${data.hora}</span>
@@ -455,128 +319,70 @@ const MessageModule = {
         container.appendChild(State.ultimoGrupo);
         State.ultimoRemitente = data.nombre;
     },
-
     agregarBurbuja(data) {
         const burbuja = document.createElement('div');
-        burbuja.className = 'message-bubble first';
-        burbuja.innerHTML = `
-            <div class="bubble-content">
-                <span class="bubble-text">${Utils.escapeHtml(data.mensaje)}</span>
-                <span class="bubble-time">${data.hora}</span>
-            </div>
-        `;
+        burbuja.className = 'message-bubble';
+        burbuja.innerHTML = `<span>${Utils.escapeHtml(data.mensaje)}</span>
+                             <span class="bubble-time">${data.hora}</span>`;
         State.ultimoGrupo.appendChild(burbuja);
-
-        const todasBurbujas = State.ultimoGrupo.querySelectorAll('.message-bubble');
-        if (todasBurbujas.length > 1) {
-            const anterior = todasBurbujas[todasBurbujas.length - 2];
-            anterior.className = anterior.className.replace('first', 'middle');
-        }
     },
-
     agregarSistema(texto) {
         State.ultimoRemitente = null;
         State.ultimoGrupo = null;
-
         const container = document.getElementById('messagesContainer');
         const div = document.createElement('div');
         div.className = 'message system';
         div.textContent = texto;
         container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        Utils.scrollToBottom();
     }
 };
 
-// ==========================================
-// MÓDULO: TYPING (ESCRIBIENDO)
-// ==========================================
 const TypingModule = {
     manejar() {
         if (!State.socket) return;
-
         State.socket.emit('escribiendo', { escribiendo: true });
-
         clearTimeout(State.timeoutEscritura);
         State.timeoutEscritura = setTimeout(() => {
             State.socket.emit('escribiendo', { escribiendo: false });
         }, CONFIG.TYPING_TIMEOUT);
     },
-
     mostrar(data) {
         const indicator = document.getElementById('typingIndicator');
-        if (!indicator) return;
-        
-        // Solo mostrar en chat grupal
-        if (State.chatPrivado) {
-            indicator.textContent = '';
-            indicator.classList.remove('visible');
-            return;
-        }
-        
+        if (State.chatPrivado) return;
         if (data.escribiendo) {
-            indicator.textContent = `✏️ ${data.nombre} está escribiendo...`;
+            indicator.textContent = `✏️ ${data.nombre} escribe...`;
             indicator.classList.add('visible');
         } else {
-            indicator.textContent = '';
             indicator.classList.remove('visible');
         }
     }
 };
 
-// ==========================================
-// MÓDULO: LOGIN
-// ==========================================
 const LoginModule = {
     iniciar() {
         const nombre = document.getElementById('nameInput').value.trim();
+        if (!nombre || nombre.length < 2) return Utils.mostrarError('Mínimo 2 caracteres');
+        if (nombre.length > 20) return Utils.mostrarError('Máximo 20 caracteres');
+        if (!Utils.validarNombre(nombre)) return Utils.mostrarError('Solo letras y números');
 
-        if (!nombre || nombre.length < 2) {
-            Utils.mostrarError('⚠️ Escribe tu nombre (mín 2 letras)');
-            return;
-        }
-
-        if (nombre.length > 20) {
-            Utils.mostrarError('⚠️ Máximo 20 caracteres');
-            return;
-        }
-
-        if (!Utils.validarNombre(nombre)) {
-            Utils.mostrarError('⚠️ Solo letras, números y espacios. Empezar con letra/número. Máx 20 chars');
-            return;
-        }
-
-        document.getElementById('errorMessage').textContent = '';
+        localStorage.setItem('chatToken', nombre);
         document.getElementById('joinBtn').disabled = true;
-        document.getElementById('joinBtn').textContent = 'Conectando...';
-
+        document.getElementById('joinBtn').innerHTML = 'Conectando...';
         ConnectionModule.conectar(nombre);
     }
 };
 
-// ==========================================
-// INICIALIZACIÓN
-// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Event Listeners
-    document.getElementById('joinBtn').addEventListener('click', () => LoginModule.iniciar());
-    document.getElementById('nameInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') LoginModule.iniciar();
-    });
+    const sName = localStorage.getItem('chatToken');
+    if (sName) document.getElementById('nameInput').value = sName;
+    
+    document.getElementById('joinBtn').addEventListener('click', LoginModule.iniciar);
+    document.getElementById('nameInput').addEventListener('keypress', e => e.key === 'Enter' && LoginModule.iniciar());
     document.getElementById('avatarUpload').addEventListener('click', () => AvatarModule.seleccionar());
-    document.getElementById('avatarInput').addEventListener('change', (e) => AvatarModule.cargar(e));
+    document.getElementById('avatarInput').addEventListener('change', e => AvatarModule.cargar(e));
+    
     document.getElementById('sendBtn').addEventListener('click', () => MessageModule.enviar());
-    document.getElementById('messageInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') MessageModule.enviar();
-    });
+    document.getElementById('messageInput').addEventListener('keypress', e => e.key === 'Enter' && MessageModule.enviar());
     document.getElementById('messageInput').addEventListener('input', () => TypingModule.manejar());
-
-    console.log('🚀 Chat Module inicializado');
 });
-
-// Toggle panel educativo (global function)
-window.toggleEdu = function() {
-    const content = document.querySelector('.edu-content');
-    const btn = document.querySelector('.edu-toggle');
-    content.classList.toggle('collapsed');
-    btn.textContent = content.classList.contains('collapsed') ? '+' : '−';
-};
