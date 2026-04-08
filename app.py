@@ -78,21 +78,26 @@ def check_rate_limit(sid, max_msgs=5, window=5):
         history.append(now)
         return True
 
-def get_unique_name(nombre):
-    """Genera nombre único sin race conditions"""
+def reclamar_nombre(nombre, sid):
+    """Reclama un nombre, expulsando la sesión fantasma anterior si existe"""
     with usuarios_lock:
         base = nombre[:20].strip()
         if not base:
             base = "Usuario"
         
-        existing = set(usuarios_conectados.values())
-        if base not in existing:
-            return base
-        
-        counter = 1
-        while f"{base}_{counter}" in existing:
-            counter += 1
-        return f"{base}_{counter}"
+        viejo_sid = None
+        for s, n in list(usuarios_conectados.items()):
+            if n == base:
+                viejo_sid = s
+                break
+                
+        if viejo_sid:
+            # Limpiamos el rastro del viejo para que este nuevo sid lo ocupe
+            usuarios_conectados.pop(viejo_sid, None)
+            colores_usuario.pop(viejo_sid, None)
+            avatares_usuario.pop(viejo_sid, None)
+            
+        return base
 
 @app.route('/')
 def index():
@@ -123,9 +128,9 @@ def registrar_usuario(data):
         if avatar and len(avatar) > 50000:
             avatar = None
         
-        # Registrar thread-safe
+        # Registrar thread-safe reclamando el nombre
         with usuarios_lock:
-            nombre = get_unique_name(nombre)
+            nombre = reclamar_nombre(nombre, sid)
             usuarios_conectados[sid] = nombre
             colores_usuario[sid] = obtener_color()
             if avatar:
