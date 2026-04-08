@@ -378,7 +378,11 @@ const LoginModule = {
 
 document.addEventListener('DOMContentLoaded', () => {
     const sName = localStorage.getItem('chatToken');
-    if (sName) document.getElementById('nameInput').value = sName;
+    if (sName) {
+        document.getElementById('nameInput').value = sName;
+        document.getElementById('loginOverlay').style.opacity = '0';
+        setTimeout(() => LoginModule.iniciar(), 100);
+    }
     
     document.getElementById('joinBtn').addEventListener('click', LoginModule.iniciar);
     document.getElementById('nameInput').addEventListener('keypress', e => e.key === 'Enter' && LoginModule.iniciar());

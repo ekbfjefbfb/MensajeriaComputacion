@@ -14,7 +14,7 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     
     <!-- Estilos externos -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    <link rel="stylesheet" href="/static/css/chat.css">
 </head>
 <body>
     <!-- ==========================================
@@ -79,12 +79,12 @@
         <main class="chat-area">
             <!-- Header -->
             <header class="chat-header glass-header">
-                <div class="header-content">
-                    <div class="header-info">
+                <div class="header-info">
+                    <div class="header-titles">
                         <h2 class="room-title" id="chatTitle">Computación 1</h2>
                         <span class="room-subtitle" id="chatSubtitle">Sala principal global</span>
-                        <div class="typing-indicator" id="typingIndicator"></div>
                     </div>
+                    <div class="typing-indicator" id="typingIndicator"></div>
                 </div>
                 <button id="closePrivateBtn" class="icon-btn hidden" onclick="PrivateChatModule.cerrar()" aria-label="Volver">
                     <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
@@ -112,6 +112,6 @@
     </div>
     
     <!-- JavaScript Module -->
-    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script src="/static/js/chat.js"></script>
 </body>
 </html>

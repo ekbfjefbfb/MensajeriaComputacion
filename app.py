@@ -316,7 +316,7 @@ if __name__ == '__main__':
     print("=" * 60)
     print("🚀 CHAT LOCAL - Versión Corregida (Thread-Safe)")
     print("=" * 60)
-    print(f"� URL: http://localhost:{port}")
+    print(f" URL: http://localhost:{port}")
     print(f"🔒 Thread-safe: Sí (RLock)")
     print(f"📊 Rate limiting: 5 msg / 5 seg")
     print(f"🖼️  Max avatar: 50KB")
