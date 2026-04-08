@@ -2,8 +2,11 @@
 Servidor de Mensajería Instantánea - Versión Corregida (Local Only)
 Sin servicios de terceros - Todo en memoria local
 """
-import eventlet
-eventlet.monkey_patch()
+try:
+    import eventlet
+    eventlet.monkey_patch()
+except ImportError:
+    pass
 
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
