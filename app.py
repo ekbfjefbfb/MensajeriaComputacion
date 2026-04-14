@@ -272,6 +272,7 @@ def manejar_mensaje_privado(data):
         if not remitente:
             return
         
+        mensaje = str(data.get('mensaje', '')).strip()
         destinatario_sid = data.get('destinatario_sid')
         tipo = data.get('tipo', 'normal')
         archivo = data.get('archivo')
@@ -357,7 +358,8 @@ def manejar_desconexion(*args, **kwargs):
             users = [
                 {'nombre': usuarios_conectados[s], 
                  'color': colores_usuario[s],
-                 'avatar': avatares_usuario.get(s)}
+                 'avatar': avatares_usuario.get(s),
+                 'sid': s}
                 for s in usuarios_conectados
             ]
         emit('lista_usuarios', {'usuarios': users}, room='general', broadcast=True)

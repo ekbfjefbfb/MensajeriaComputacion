@@ -131,7 +131,8 @@ const ConnectionModule = {
         socket.on('connect', () => {
             socket.emit('registrar_usuario', {
                 nombre: document.getElementById('nameInput').value.trim(),
-                avatar: State.miAvatar
+                avatar: State.miAvatar,
+                token: State.miToken
             });
         });
 
