@@ -151,15 +151,9 @@ def gestionar_nombre_y_token(nombre, sid, token_cliente):
             tokens_usuario.pop(viejo_sid, None)
             return base
             
-        # Es un usuario nuevo. Verificar colisión de nombre.
-        existing_names = set(usuarios_conectados.values())
-        if base not in existing_names:
-            return base
-            
-        counter = 1
-        while f"{base}_{counter}" in existing_names:
-            counter += 1
-        return f"{base}_{counter}"
+        # Es un usuario nuevo. El usuario prefiere no usar alias, 
+        # así que permitimos múltiples usuarios con el mismo nombre exacto.
+        return base
 
 @app.route('/')
 def index():
