@@ -23,7 +23,10 @@ const State = {
     tiempoUltimoMensaje: 0,
     chatPrivado: null,
     mensajesGlobales: [],
-    mensajesPrivados: {}
+    mensajesPrivados: {},
+    mediaRecorder: null,
+    audioChunks: [],
+    ultimaHoraMensaje: null
 };
 
 const Utils = {
@@ -167,6 +170,12 @@ const ConnectionModule = {
 
         // Privados
         socket.on('mensaje_privado', (data) => PrivateChatModule.recibirMensaje(data));
+        
+        socket.on('mensaje_privado_enviado', (data) => {
+            if (State.chatPrivado?.nombre === UserModule.getNameBySid(data.destinatario_sid)) {
+                MessageModule.agregar(data, true);
+            }
+        });
     }
 };
 
@@ -208,6 +217,9 @@ const UserModule = {
     },
     getSid(nombre) {
         return this.usuariosLista.find(u => u.nombre === nombre)?.sid;
+    },
+    getNameBySid(sid) {
+        return this.usuariosLista.find(u => u.sid === sid)?.nombre;
     }
 };
 
@@ -280,25 +292,31 @@ const MessageModule = {
         const input = document.getElementById('messageInput');
         const mensaje = input.value.trim();
         if (!mensaje || !State.socket) return;
+        this.emitir('normal', mensaje);
         input.value = '';
-
+    },
+    emitir(tipo, mensaje, archivo = null, ext = '') {
+        if (!State.socket) return;
+        
+        const payload = { tipo, mensaje, archivo, ext };
+        
         if (State.chatPrivado) {
             const destSid = UserModule.getSid(State.chatPrivado.nombre);
             if (destSid) {
-                State.socket.emit('mensaje_privado', { mensaje, destinatario_sid: destSid });
+                payload.destinatario_sid = destSid;
+                State.socket.emit('mensaje_privado', payload);
+                // Lógica local para privados (optimizado)
                 const msgData = {
                     nombre: State.miNombre,
                     mensaje, color: State.miColor, avatar: State.miAvatar, 
                     hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    esPrivado: true
+                    esPrivado: true, tipo, archivo, ext
                 };
                 if (!State.mensajesPrivados[State.chatPrivado.nombre]) State.mensajesPrivados[State.chatPrivado.nombre] = [];
                 State.mensajesPrivados[State.chatPrivado.nombre].push(msgData);
-                MessageModule.agregar(msgData, true);
-                Utils.scrollToBottom();
             }
         } else {
-            State.socket.emit('mensaje', { mensaje });
+            State.socket.emit('mensaje', payload);
             State.socket.emit('escribiendo', { escribiendo: false });
         }
     },
@@ -336,8 +354,35 @@ const MessageModule = {
     agregarBurbuja(data) {
         const burbuja = document.createElement('div');
         burbuja.className = 'message-bubble';
-        burbuja.innerHTML = `<span>${Utils.escapeHtml(data.mensaje)}</span>
-                             <span class="bubble-time">${data.hora}</span>`;
+        
+        let contentHtml = '';
+        const safeText = Utils.escapeHtml(data.mensaje);
+        const linkifiedText = safeText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:inherit; text-decoration:underline">$1</a>');
+
+        switch(data.tipo) {
+            case 'imagen':
+                contentHtml = `<img src="${data.archivo}" alt="Imagen"><span>${linkifiedText}</span>`;
+                break;
+            case 'audio':
+                contentHtml = `<audio src="${data.archivo}" controls></audio>`;
+                break;
+            case 'video':
+                contentHtml = `<video src="${data.archivo}" controls></video><span>${linkifiedText}</span>`;
+                break;
+            case 'sticker':
+                contentHtml = `<div style="font-size: 3rem">${data.archivo}</div>`;
+                break;
+            case 'documento':
+                contentHtml = `<a href="${data.archivo}" download="archivo.${data.ext}" class="doc-link">
+                    <svg width="24" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    Documento (.${data.ext})
+                </a>`;
+                break;
+            default:
+                contentHtml = `<span>${linkifiedText}</span>`;
+        }
+
+        burbuja.innerHTML = `${contentHtml} <span class="bubble-time">${data.hora}</span>`;
         State.ultimoGrupo.appendChild(burbuja);
     },
     agregarSistema(texto) {
@@ -349,6 +394,74 @@ const MessageModule = {
         div.textContent = texto;
         container.appendChild(div);
         Utils.scrollToBottom();
+    }
+};
+
+const MediaModule = {
+    async alternarGrabacion() {
+        if (!State.mediaRecorder || State.mediaRecorder.state === 'inactive') {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                State.mediaRecorder = new MediaRecorder(stream);
+                State.audioChunks = [];
+                
+                State.mediaRecorder.ondataavailable = e => State.audioChunks.push(e.data);
+                State.mediaRecorder.onstop = () => this.enviarVoz();
+                
+                State.mediaRecorder.start();
+                document.getElementById('micBtn').classList.add('recording');
+                // Auto-stop after 30s as per plan
+                setTimeout(() => { if(State.mediaRecorder.state === 'recording') this.alternarGrabacion(); }, 30000);
+            } catch (err) {
+                Utils.mostrarError("No se pudo acceder al micrófono");
+            }
+        } else {
+            State.mediaRecorder.stop();
+            document.getElementById('micBtn').classList.remove('recording');
+            State.mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        }
+    },
+    enviarVoz() {
+        const audioBlob = new Blob(State.audioChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = e => MessageModule.emitir('audio', '', e.target.result);
+        reader.readAsDataURL(audioBlob);
+    },
+    seleccionarArchivo() {
+        document.getElementById('mediaInput').click();
+    },
+    async procesarArchivo(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit adjusted in backend
+            return Utils.mostrarError("Archivo demasiado grande (Máx 2MB)");
+        }
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const data = ev.target.result;
+            const ext = file.name.split('.').pop();
+            let tipo = 'documento';
+            
+            if (file.type.startsWith('image/')) tipo = 'imagen';
+            else if (file.type.startsWith('video/')) tipo = 'video';
+            else if (file.type.startsWith('audio/')) tipo = 'audio';
+
+            MessageModule.emitir(tipo, file.name, data, ext);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; // Reset
+    }
+};
+
+const StickerModule = {
+    toggle() {
+        document.getElementById('stickerPanel').classList.toggle('hidden');
+    },
+    enviar(sticker) {
+        MessageModule.emitir('sticker', '', sticker);
+        this.toggle();
     }
 };
 
@@ -407,7 +520,41 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('avatarUpload').addEventListener('click', () => AvatarModule.seleccionar());
     document.getElementById('avatarInput').addEventListener('change', e => AvatarModule.cargar(e));
     
-    document.getElementById('sendBtn').addEventListener('click', () => MessageModule.enviar());
-    document.getElementById('messageInput').addEventListener('keypress', e => e.key === 'Enter' && MessageModule.enviar());
-    document.getElementById('messageInput').addEventListener('input', () => TypingModule.manejar());
+    const sendBtn = document.getElementById('sendBtn');
+    const msgInput = document.getElementById('messageInput');
+
+    msgInput.addEventListener('input', () => {
+        TypingModule.manejar();
+        if (msgInput.value.trim().length > 0) {
+            sendBtn.classList.remove('hidden');
+            document.getElementById('micBtn').classList.add('hidden');
+        } else {
+            sendBtn.classList.add('hidden');
+            document.getElementById('micBtn').classList.remove('hidden');
+        }
+    });
+
+    sendBtn.addEventListener('click', () => {
+        MessageModule.enviar();
+        sendBtn.classList.add('hidden');
+        document.getElementById('micBtn').classList.remove('hidden');
+    });
+
+    msgInput.addEventListener('keypress', e => {
+        if (e.key === 'Enter') {
+            MessageModule.enviar();
+            sendBtn.classList.add('hidden');
+            document.getElementById('micBtn').classList.remove('hidden');
+        }
+    });
+
+    // Multimedia Event Listeners
+    document.getElementById('stickerBtn').addEventListener('click', () => StickerModule.toggle());
+    document.getElementById('attachBtn').addEventListener('click', () => MediaModule.seleccionarArchivo());
+    document.getElementById('mediaInput').addEventListener('change', e => MediaModule.procesarArchivo(e));
+    document.getElementById('micBtn').addEventListener('click', () => MediaModule.alternarGrabacion());
+
+    document.querySelectorAll('.sticker-item').forEach(item => {
+        item.addEventListener('click', () => StickerModule.enviar(item.dataset.sticker));
+    });
 });

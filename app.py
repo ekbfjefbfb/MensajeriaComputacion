@@ -46,7 +46,7 @@ socketio = SocketIO(
     engineio_logger=False,
     ping_timeout=30,
     ping_interval=15,
-    max_http_buffer_size=100000  # 100KB máximo
+    max_http_buffer_size=2000000  # 2MB para multimedia avanzada
 )
 
 # Almacenamiento thread-safe en memoria
@@ -69,8 +69,8 @@ def obtener_color():
 def obtener_hora():
     return datetime.now().strftime('%H:%M')
 
-def check_rate_limit(sid, max_msgs=5, window=5):
-    """Rate limiter simple en memoria"""
+def check_rate_limit(sid, max_msgs=10, window=5):
+    """Rate limiter optimizado para producción"""
     with rate_limit_lock:
         now = time.time()
         history = rate_limits[sid]
@@ -221,9 +221,16 @@ def manejar_mensaje(data):
         if avatar and len(avatar) > 50000:
             avatar = None
         
-        mensaje = str(data.get('mensaje', '')).strip()[:500]
-        if not mensaje:
-            return
+        # Extraer tipo y archivo (Base64)
+        tipo = data.get('tipo', 'normal')
+        archivo = data.get('archivo')
+        ext = data.get('ext', '')
+        
+        # Limitar longitud si es texto normal, si es archivo permitir más (hasta buffer limit)
+        mensaje = str(data.get('mensaje', '')).strip()
+        if tipo == 'normal':
+            mensaje = mensaje[:1000]
+            if not mensaje: return
         
         msg_response = {
             'nombre': nombre,
@@ -231,16 +238,18 @@ def manejar_mensaje(data):
             'color': color,
             'avatar': avatar,
             'hora': obtener_hora(),
-            'tipo': 'normal'
+            'tipo': tipo,
+            'archivo': archivo,
+            'ext': ext
         }
         
         # Guardar en el historial grupal
         with usuarios_lock:
             historial_mensajes.append(msg_response)
             
-        emit('nuevo_mensaje', msg_response, room='general', broadcast=True)  # Todos reciben incluyendo remitente (misma hora)
+        emit('nuevo_mensaje', msg_response, room='general', broadcast=True)
         
-        print(f'💬 {nombre}: {mensaje[:30]}...')
+        print(f'💬 {nombre} ({tipo}): {mensaje[:30]}...')
         
     except Exception as e:
         print(f'❌ Error mensaje: {e}')
@@ -260,16 +269,14 @@ def manejar_mensaje_privado(data):
             return
         
         destinatario_sid = data.get('destinatario_sid')
-        mensaje = str(data.get('mensaje', '')).strip()[:500]
+        mensaje = str(data.get('mensaje', '')).strip()
+        tipo = data.get('tipo', 'normal')
+        archivo = data.get('archivo')
+        ext = data.get('ext', '')
         
-        if not mensaje or not destinatario_sid:
+        if not (mensaje or archivo) or not destinatario_sid:
             return
-        
-        # Rate limiting
-        if not check_rate_limit(f"priv_{sid}", 10, 5):
-            emit('error', {'message': 'Mensajes privados muy rápido'})
-            return
-        
+            
         hora_actual = obtener_hora()
         
         # Enviar al destinatario
@@ -280,13 +287,19 @@ def manejar_mensaje_privado(data):
             'avatar': remitente_avatar,
             'hora': hora_actual,
             'remitente': remitente,
-            'esPrivado': True
+            'esPrivado': True,
+            'tipo': tipo,
+            'archivo': archivo,
+            'ext': ext
         }, room=destinatario_sid)
         
         # Confirmar al remitente
         emit('mensaje_privado_enviado', {
             'destinatario_sid': destinatario_sid,
             'mensaje': mensaje,
+            'tipo': tipo,
+            'archivo': archivo,
+            'ext': ext,
             'hora': hora_actual
         })
         
