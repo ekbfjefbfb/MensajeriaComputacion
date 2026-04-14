@@ -16,6 +16,7 @@ import random
 import os
 import threading
 import time
+from collections import defaultdict, deque
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -86,8 +87,7 @@ socketio = SocketIO(
     engineio_logger=False,
     ping_timeout=30,
     ping_interval=15,
-    max_http_buffer_size=2000000,  # 2MB para multimedia avanzada
-    async_mode='threading'
+    max_http_buffer_size=2000000  # 2MB para multimedia avanzada
 )
 
 # Almacenamiento thread-safe en memoria
