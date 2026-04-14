@@ -5,7 +5,7 @@ Sin servicios de terceros - Todo en memoria local
 try:
     import eventlet
     eventlet.monkey_patch()
-except ImportError:
+except Exception:
     pass
 
 from flask import Flask, render_template, request
@@ -16,11 +16,13 @@ import random
 import os
 import threading
 import time
-from collections import defaultdict, deque
+from dotenv import load_dotenv
+load_dotenv()
+
+from flask_sqlalchemy import SQLAlchemy
 
 # Configuración y almacenamiento de chat
 HISTORIAL_MAX = 100
-historial_mensajes = deque(maxlen=HISTORIAL_MAX) # Almacena historial grupal para nuevos usuarios
 
 # Validación de nombre - letras, números, espacios (no al inicio)
 NOMBRE_REGEX = re.compile(r'^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$')
@@ -34,9 +36,47 @@ def validar_nombre(nombre):
         return False
     return NOMBRE_REGEX.match(nombre) is not None
 
-# Configuración minimalista (sin servicios externos)
+# Configuración minimalista con DB
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'demo-local-secreta')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:CVvBw6hFjWk4Bcfn@hsxnlxzgrwemlhctvidb.db.eu-central-1.nhost.run:5432/hsxnlxzgrwemlhctvidb')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class Message(db.Model):
+    __tablename__ = 'messages'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(255), nullable=False)
+    mensaje = db.Column(db.Text, nullable=True)
+    color = db.Column(db.String(50), nullable=True)
+    avatar = db.Column(db.Text, nullable=True)
+    hora = db.Column(db.String(50), nullable=True)
+    tipo = db.Column(db.String(50), default='normal')
+    archivo = db.Column(db.Text, nullable=True)
+    ext = db.Column(db.String(50), nullable=True)
+    nombre_real = db.Column(db.String(255), nullable=True)
+    tamano = db.Column(db.String(50), nullable=True)
+    room = db.Column(db.String(255), default='general')
+    es_privado = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'nombre': self.nombre,
+            'mensaje': self.mensaje,
+            'color': self.color,
+            'avatar': self.avatar,
+            'hora': self.hora,
+            'tipo': self.tipo,
+            'archivo': self.archivo,
+            'ext': self.ext,
+            'nombre_real': self.nombre_real,
+            'tamano': self.tamano,
+            'room': self.room,
+            'esPrivado': self.es_privado
+        }
 
 # SocketIO simple (sin async_mode externo)
 socketio = SocketIO(
@@ -46,7 +86,8 @@ socketio = SocketIO(
     engineio_logger=False,
     ping_timeout=30,
     ping_interval=15,
-    max_http_buffer_size=2000000  # 2MB para multimedia avanzada
+    max_http_buffer_size=2000000,  # 2MB para multimedia avanzada
+    async_mode='threading'
 )
 
 # Almacenamiento thread-safe en memoria
@@ -188,8 +229,10 @@ def registrar_usuario(data):
         emit('lista_usuarios', {'usuarios': users}, room='general', broadcast=True)
         
         # Enviar historial al nuevo usuario solamente
-        with usuarios_lock:
-            history_list = list(historial_mensajes)
+        with app.app_context():
+            mensajes_db = Message.query.filter_by(room='general').order_by(Message.timestamp.desc()).limit(100).all()
+            history_list = [m.to_dict() for m in reversed(mensajes_db)]
+        
         emit('historial_mensajes', {'mensajes': history_list})
         
         print(f'👤 Registrado: {nombre}')
@@ -247,9 +290,28 @@ def manejar_mensaje(data):
             'tamano': tamano
         }
         
-        # Guardar en el historial grupal
-        with usuarios_lock:
-            historial_mensajes.append(msg_response)
+        # Guardar en la base de datos (general)
+        with app.app_context():
+            nuevo_msg = Message(
+                nombre=nombre,
+                mensaje=mensaje,
+                color=color,
+                avatar=avatar,
+                hora=msg_response['hora'],
+                tipo=tipo,
+                archivo=archivo,
+                ext=ext,
+                nombre_real=nombre_real,
+                tamano=tamano,
+                room='general',
+                es_privado=False
+            )
+            db.session.add(nuevo_msg)
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"Error guardando DB: {e}")
             
         emit('nuevo_mensaje', msg_response, room='general', broadcast=True)
         
@@ -371,6 +433,15 @@ def default_error_handler(e):
     print(f'❌ Error: {e}')
 
 if __name__ == '__main__':
+    with app.app_context():
+        # Crear base de datos (seguro lanzarlo en el inicio si conectamos a la externa)
+        print("Sincronizando Base de Datos PostgreSQL...")
+        try:
+            db.create_all()
+            print("Tablas verificadas correctamente.")
+        except Exception as e:
+            print(f"Error creando tablas en DB: {e}")
+
     port = int(os.environ.get('PORT', 5001))
     
     print("=" * 60)
