@@ -26,7 +26,8 @@ const State = {
     mensajesPrivados: {},
     mediaRecorder: null,
     audioChunks: [],
-    ultimaHoraMensaje: null
+    ultimaHoraMensaje: null,
+    bibliotecaArchivos: []
 };
 
 const Utils = {
@@ -41,8 +42,24 @@ const Utils = {
         setTimeout(() => errorDiv.textContent = '', 5000);
     },
     validarNombre(nombre) {
-        const regex = /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$/;
-        return regex.test(nombre) && nombre.trim().length >= 2 && nombre.length <= 20;
+        return /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$/.test(nombre);
+    },
+    formatearTamano(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    },
+    getIconoArchivo(ext) {
+        const iconMap = {
+            'pdf': '<svg width="24" viewBox="0 0 24 24"><path fill="#FF4444" d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>',
+            'doc': '<svg width="24" viewBox="0 0 24 24"><path fill="#2B579A" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',
+            'docx': '<svg width="24" viewBox="0 0 24 24"><path fill="#2B579A" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',
+            'xls': '<svg width="24" viewBox="0 0 24 24"><path fill="#217346" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',
+            'xlsx': '<svg width="24" viewBox="0 0 24 24"><path fill="#217346" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>'
+        };
+        return iconMap[ext.toLowerCase()] || '<svg width="24" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>';
     },
     scrollToBottom() {
         const c = document.getElementById('messagesContainer');
@@ -295,10 +312,10 @@ const MessageModule = {
         this.emitir('normal', mensaje);
         input.value = '';
     },
-    emitir(tipo, mensaje, archivo = null, ext = '') {
+    emitir(tipo, mensaje, archivo = null, ext = '', nombre_real = '', tamano = '') {
         if (!State.socket) return;
         
-        const payload = { tipo, mensaje, archivo, ext };
+        const payload = { tipo, mensaje, archivo, ext, nombre_real, tamano };
         
         if (State.chatPrivado) {
             const destSid = UserModule.getSid(State.chatPrivado.nombre);
@@ -314,6 +331,7 @@ const MessageModule = {
                 };
                 if (!State.mensajesPrivados[State.chatPrivado.nombre]) State.mensajesPrivados[State.chatPrivado.nombre] = [];
                 State.mensajesPrivados[State.chatPrivado.nombre].push(msgData);
+                if (archivo) LibraryModule.registrar(msgData);
             }
         } else {
             State.socket.emit('mensaje', payload);
@@ -321,6 +339,8 @@ const MessageModule = {
         }
     },
     agregar(data, esPropio = false, historico = false, esGlobal = false) {
+        if (!data.hora) data.hora = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        if (data.archivo) LibraryModule.registrar(data);
         // En privado, solo mostrar si NO es global, o si se especifico. En este modulo: 
         // Ya filtramos qué agregar en los eventos.
         const container = document.getElementById('messagesContainer');
@@ -361,7 +381,7 @@ const MessageModule = {
 
         switch(data.tipo) {
             case 'imagen':
-                contentHtml = `<img src="${data.archivo}" alt="Imagen"><span>${linkifiedText}</span>`;
+                contentHtml = `<img src="${data.archivo}" alt="Imagen" onclick="window.open(this.src)"><span>${linkifiedText}</span>`;
                 break;
             case 'audio':
                 contentHtml = `<audio src="${data.archivo}" controls></audio>`;
@@ -370,12 +390,16 @@ const MessageModule = {
                 contentHtml = `<video src="${data.archivo}" controls></video><span>${linkifiedText}</span>`;
                 break;
             case 'sticker':
-                contentHtml = `<div style="font-size: 3rem">${data.archivo}</div>`;
+                contentHtml = `<img src="${data.archivo}" class="gif-sticker" style="width:120px; border-radius:12px">`;
                 break;
             case 'documento':
-                contentHtml = `<a href="${data.archivo}" download="archivo.${data.ext}" class="doc-link">
-                    <svg width="24" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                    Documento (.${data.ext})
+                const icon = Utils.getIconoArchivo(data.ext);
+                contentHtml = `<a href="${data.archivo}" download="${data.nombre_real || 'archivo'}.${data.ext}" class="doc-link">
+                    ${icon}
+                    <div style="display:flex; flex-direction:column">
+                        <span style="font-weight:600">${data.nombre_real || 'Documento'}</span>
+                        <span style="font-size:0.7rem; opacity:0.8">${data.tamano || ''}</span>
+                    </div>
                 </a>`;
                 break;
             default:
@@ -434,24 +458,61 @@ const MediaModule = {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 2 * 1024 * 1024) { // 2MB limit adjusted in backend
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
             return Utils.mostrarError("Archivo demasiado grande (Máx 2MB)");
         }
 
         const reader = new FileReader();
         reader.onload = (ev) => {
             const data = ev.target.result;
-            const ext = file.name.split('.').pop();
+            const ext = file.name.split('.').pop().toLowerCase();
+            const tamano = Utils.formatearTamano(file.size);
             let tipo = 'documento';
             
             if (file.type.startsWith('image/')) tipo = 'imagen';
             else if (file.type.startsWith('video/')) tipo = 'video';
             else if (file.type.startsWith('audio/')) tipo = 'audio';
 
-            MessageModule.emitir(tipo, file.name, data, ext);
+            MessageModule.emitir(tipo, '', data, ext, file.name, tamano);
         };
         reader.readAsDataURL(file);
         e.target.value = ''; // Reset
+    }
+};
+
+const LibraryModule = {
+    registrar(data) {
+        if (!data.archivo || data.tipo === 'sticker') return;
+        
+        // Evitar duplicados (por hash de base64 simplificado o nombre)
+        const existe = State.bibliotecaArchivos.some(a => a.archivo === data.archivo);
+        if (existe) return;
+
+        State.bibliotecaArchivos.push(data);
+        this.renderizar();
+    },
+    renderizar() {
+        const listContainer = document.getElementById('mediaLibraryList');
+        if (State.bibliotecaArchivos.length === 0) {
+            listContainer.innerHTML = '<div class="empty-library">No hay archivos compartidos aún.</div>';
+            return;
+        }
+
+        listContainer.innerHTML = State.bibliotecaArchivos.map(file => `
+            <div class="library-item">
+                <div class="lib-file-info">
+                    <div class="lib-icon">${Utils.getIconoArchivo(file.ext)}</div>
+                    <div class="lib-details">
+                        <span class="lib-name" title="${file.nombre_real || 'Archivo'}">${file.nombre_real || 'Archivo'}</span>
+                        <span class="lib-meta">${file.tamano || ''} • ${file.nombre}</span>
+                    </div>
+                </div>
+                <a href="${file.archivo}" download="${file.nombre_real || 'archivo'}.${file.ext}" class="lib-download">Descargar</a>
+            </div>
+        `).join('');
+    },
+    toggle() {
+        document.getElementById('mediaDrawer').classList.toggle('hidden');
     }
 };
 
@@ -459,8 +520,8 @@ const StickerModule = {
     toggle() {
         document.getElementById('stickerPanel').classList.toggle('hidden');
     },
-    enviar(sticker) {
-        MessageModule.emitir('sticker', '', sticker);
+    enviar(url) {
+        MessageModule.emitir('sticker', '', url);
         this.toggle();
     }
 };
@@ -549,12 +610,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Multimedia Event Listeners
-    document.getElementById('stickerBtn').addEventListener('click', () => StickerModule.toggle());
+    document.getElementById('stickerBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        StickerModule.toggle();
+    });
+    
+    document.getElementById('openLibraryBtn').addEventListener('click', () => LibraryModule.toggle());
+    document.getElementById('closeDrawerBtn').addEventListener('click', () => LibraryModule.toggle());
+    
     document.getElementById('attachBtn').addEventListener('click', () => MediaModule.seleccionarArchivo());
     document.getElementById('mediaInput').addEventListener('change', e => MediaModule.procesarArchivo(e));
     document.getElementById('micBtn').addEventListener('click', () => MediaModule.alternarGrabacion());
 
     document.querySelectorAll('.sticker-item').forEach(item => {
+        const img = document.createElement('img');
+        img.src = item.dataset.sticker;
+        item.innerHTML = '';
+        item.appendChild(img);
         item.addEventListener('click', () => StickerModule.enviar(item.dataset.sticker));
+    });
+
+    // Cerrar paneles al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('stickerPanel').contains(e.target) && e.target.id !== 'stickerBtn') {
+            document.getElementById('stickerPanel').classList.add('hidden');
+        }
     });
 });

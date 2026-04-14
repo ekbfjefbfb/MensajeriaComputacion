@@ -89,9 +89,14 @@
                     </div>
                     <div class="typing-indicator" id="typingIndicator"></div>
                 </div>
-                <button id="closePrivateBtn" class="icon-btn hidden" onclick="PrivateChatModule.cerrar()" aria-label="Volver">
-                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-                </button>
+                <div class="header-actions">
+                    <button id="openLibraryBtn" class="icon-btn" title="Biblioteca de Archivos">
+                        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    </button>
+                    <button id="closePrivateBtn" class="icon-btn hidden" onclick="PrivateChatModule.cerrar()" aria-label="Volver">
+                        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                    </button>
+                </div>
             </header>
             
             <!-- Messages -->
@@ -130,17 +135,26 @@
                 
                 <!-- Sticker Panel -->
                 <div class="sticker-panel hidden" id="stickerPanel">
-                    <div class="sticker-item" data-sticker="🔥">🔥</div>
-                    <div class="sticker-item" data-sticker="❤️">❤️</div>
-                    <div class="sticker-item" data-sticker="😂">😂</div>
-                    <div class="sticker-item" data-sticker="👍">👍</div>
-                    <div class="sticker-item" data-sticker="🚀">🚀</div>
-                    <div class="sticker-item" data-sticker="😮">😮</div>
-                    <div class="sticker-item" data-sticker="👏">👏</div>
-                    <div class="sticker-item" data-sticker="💡">💡</div>
+                    <div class="sticker-item" data-sticker="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3Jobm8yc3IyamZ4Z2dyeG54Z2dyeG54Z2dyeG54Z2dyeG54JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/3o7TKVUn7iM8FMEU24/giphy.gif">🔥</div>
+                    <div class="sticker-item" data-sticker="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3Jobm8yc3IyamZ4Z2dyeG54Z2dyeG54Z2dyeG54Z2dyeG54JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/l41lTfuxV5RWDjYVq/giphy.gif">❤️</div>
+                    <div class="sticker-item" data-sticker="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3Jobm8yc3IyamZ4Z2dyeG54Z2dyeG54Z2dyeG54Z2dyeG54JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/3o7TKMGpxP5O15fKx2/giphy.gif">😂</div>
+                    <div class="sticker-item" data-sticker="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3Jobm8yc3IyamZ4Z2dyeG54Z2dyeG54Z2dyeG54Z2dyeG54JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/3o7TKSjRrfIPJeSStO/giphy.gif">👍</div>
+                    <div class="sticker-item" data-sticker="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJqZ3Jobm8yc3IyamZ4Z2dyeG54Z2dyeG54Z2dyeG54Z2dyeG54JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1z/3o7TKVUn7iM8FMEU24/giphy.gif">🚀</div>
                 </div>
             </div>
         </main>
+        
+        <!-- Media Library Drawer -->
+        <div id="mediaDrawer" class="media-drawer hidden">
+            <div class="drawer-header">
+                <h3>Archivos Compartidos</h3>
+                <button id="closeDrawerBtn" class="icon-btn">×</button>
+            </div>
+            <div id="mediaLibraryList" class="media-library-list">
+                <!-- Se llenará dinámicamente -->
+                <div class="empty-library">No hay archivos compartidos aún.</div>
+            </div>
+        </div>
     </div>
     
     <!-- JavaScript Module -->

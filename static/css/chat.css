@@ -322,11 +322,15 @@ body {
 }
 
 .chat-header {
-    padding: 16px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 72px;
+    padding: 16px 20px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
 }
 
 .glass-header {
@@ -513,16 +517,135 @@ body {
 }
 
 .sticker-item {
-    font-size: 1.8rem;
-    padding: 6px;
     cursor: pointer;
     border-radius: 8px;
-    transition: background 0.2s;
-    text-align: center;
+    transition: transform 0.2s, background 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    width: 44px;
+    height: 44px;
+}
+
+.sticker-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 .sticker-item:hover {
     background: rgba(255,255,255,0.05);
+    transform: scale(1.1);
+}
+
+/* MEDIA DRAWER */
+.media-drawer {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 320px;
+    height: 100%;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-color);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    transition: transform 0.3s ease;
+}
+
+.media-drawer.hidden {
+    transform: translateX(100%);
+    display: flex !important; /* Mantener flex para la animación */
+}
+
+.drawer-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.media-library-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.empty-library {
+    text-align: center;
+    color: var(--text-sec);
+    margin-top: 40px;
+    font-size: 0.9rem;
+}
+
+.library-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.lib-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lib-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.lib-details {
+    flex: 1;
+    overflow: hidden;
+}
+
+.lib-name {
+    display: block;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lib-meta {
+    font-size: 0.75rem;
+    color: var(--text-sec);
+}
+
+.lib-download {
+    width: 100%;
+    padding: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border-color);
+    color: white;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.lib-download:hover {
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 /* MULTIMEDIA MESSAGE STYLES */

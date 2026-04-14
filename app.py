@@ -221,12 +221,14 @@ def manejar_mensaje(data):
         if avatar and len(avatar) > 50000:
             avatar = None
         
-        # Extraer tipo y archivo (Base64)
+        # Extraer tipo y archivos con metadatos
         tipo = data.get('tipo', 'normal')
         archivo = data.get('archivo')
         ext = data.get('ext', '')
+        nombre_real = data.get('nombre_real', '')
+        tamano = data.get('tamano', '')
         
-        # Limitar longitud si es texto normal, si es archivo permitir más (hasta buffer limit)
+        # Limitar longitud si es texto normal, si es archivo permitir más
         mensaje = str(data.get('mensaje', '')).strip()
         if tipo == 'normal':
             mensaje = mensaje[:1000]
@@ -240,7 +242,9 @@ def manejar_mensaje(data):
             'hora': obtener_hora(),
             'tipo': tipo,
             'archivo': archivo,
-            'ext': ext
+            'ext': ext,
+            'nombre_real': nombre_real,
+            'tamano': tamano
         }
         
         # Guardar en el historial grupal
@@ -269,10 +273,11 @@ def manejar_mensaje_privado(data):
             return
         
         destinatario_sid = data.get('destinatario_sid')
-        mensaje = str(data.get('mensaje', '')).strip()
         tipo = data.get('tipo', 'normal')
         archivo = data.get('archivo')
         ext = data.get('ext', '')
+        nombre_real = data.get('nombre_real', '')
+        tamano = data.get('tamano', '')
         
         if not (mensaje or archivo) or not destinatario_sid:
             return
@@ -290,7 +295,9 @@ def manejar_mensaje_privado(data):
             'esPrivado': True,
             'tipo': tipo,
             'archivo': archivo,
-            'ext': ext
+            'ext': ext,
+            'nombre_real': nombre_real,
+            'tamano': tamano
         }, room=destinatario_sid)
         
         # Confirmar al remitente
@@ -300,6 +307,8 @@ def manejar_mensaje_privado(data):
             'tipo': tipo,
             'archivo': archivo,
             'ext': ext,
+            'nombre_real': nombre_real,
+            'tamano': tamano,
             'hora': hora_actual
         })
         
