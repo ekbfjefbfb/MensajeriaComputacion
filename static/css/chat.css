@@ -422,9 +422,15 @@ body {
 }
 
 .message-group.own .message-bubble {
-    background: #007aff;
+    background: #2a2a2d; /* Gris muy oscuro, casi neutro */
     color: white;
     border-bottom-right-radius: 4px;
+}
+
+.message-bubble.media-only {
+    background: transparent !important;
+    padding: 0;
+    border: none !important;
 }
 
 .message-group.other .message-bubble {

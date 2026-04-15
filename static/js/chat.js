@@ -376,6 +376,13 @@ const MessageModule = {
         const burbuja = document.createElement('div');
         burbuja.className = 'message-bubble';
         
+        // Si es multimedia puro sin texto, limpiamos el diseño
+        if (!data.mensaje || data.mensaje.trim() === '') {
+            if (['imagen', 'sticker', 'video'].includes(data.tipo)) {
+                burbuja.classList.add('media-only');
+            }
+        }
+        
         let contentHtml = '';
         const safeText = Utils.escapeHtml(data.mensaje);
         const linkifiedText = safeText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:inherit; text-decoration:underline">$1</a>');
