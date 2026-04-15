@@ -159,6 +159,18 @@ const ConnectionModule = {
             }
         });
 
+        socket.on('sesion_duplicada', (data) => {
+            socket.disconnect();
+            document.body.innerHTML = `
+                <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:#000; color:#fff; text-align:center; padding:20px;">
+                    <div style="font-size:4rem; margin-bottom:20px;">⚠️</div>
+                    <h1 style="font-size:1.5rem; margin-bottom:10px;">Sesión Detenida</h1>
+                    <p style="color:#a1a1aa; max-width:400px; line-height:1.5;">${data.message}<br>Solo puedes tener el chat abierto en una pestaña a la vez por seguridad y rendimiento.</p>
+                    <button onclick="window.location.reload()" style="margin-top:24px; padding:12px 24px; background:#007aff; color:#fff; border:none; border-radius:24px; cursor:pointer; font-weight:600;">Usar en esta pestaña</button>
+                </div>
+            `;
+        });
+
         socket.on('error', (data) => {
             Utils.mostrarError('⚠️ ' + (data.message || 'Error'));
             document.getElementById('joinBtn').disabled = false;

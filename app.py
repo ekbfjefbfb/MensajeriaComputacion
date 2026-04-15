@@ -144,7 +144,12 @@ def gestionar_nombre_y_token(nombre, sid, token_cliente):
                 break
                 
         if viejo_sid:
-            # Reclamo legítimo de un ghost
+            # Emitir evento de expulsión a la pestaña vieja
+            from flask_socketio import emit
+            # Enviar el evento fuera del contexto de petición actual pero hacia ese sid
+            socketio.emit('sesion_duplicada', {'message': 'Has iniciado sesión en otra pestaña.'}, room=viejo_sid)
+            
+            # Limpiar memoria del ghost/pestaña_antigua
             usuarios_conectados.pop(viejo_sid, None)
             colores_usuario.pop(viejo_sid, None)
             avatares_usuario.pop(viejo_sid, None)
