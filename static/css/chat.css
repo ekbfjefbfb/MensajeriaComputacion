@@ -477,11 +477,18 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s;
+    transition: color 0.2s, transform 0.2s;
+    outline: none;
+}
+
+.icon-btn-input svg {
+    width: 22px;
+    height: 22px;
 }
 
 .icon-btn-input:hover {
     color: var(--accent);
+    transform: scale(1.1);
 }
 
 .icon-btn-input.recording {
@@ -650,10 +657,17 @@ body {
 
 /* MULTIMEDIA MESSAGE STYLES */
 .message-bubble img, .message-bubble video {
-    max-width: 100%;
+    max-width: 260px;
+    max-height: 260px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
     border-radius: 8px;
     margin-bottom: 4px;
     display: block;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background: rgba(0,0,0,0.2);
 }
 
 .message-bubble audio {
