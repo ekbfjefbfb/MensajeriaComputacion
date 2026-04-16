@@ -64,6 +64,22 @@ const Utils = {
     scrollToBottom() {
         const c = document.getElementById('messagesContainer');
         c.scrollTop = c.scrollHeight;
+    },
+    abrirVisor(src) {
+        const overlay = document.createElement('div');
+        overlay.className = 'lightbox-overlay';
+        overlay.innerHTML = `
+            <div class="lightbox-content">
+                <img src="${src}" alt="Vista previa">
+                <button class="lightbox-close">&times;</button>
+            </div>
+        `;
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay || e.target.classList.contains('lightbox-close')) {
+                overlay.remove();
+            }
+        });
+        document.body.appendChild(overlay);
     }
 };
 
@@ -177,11 +193,12 @@ const ConnectionModule = {
         });
 
         socket.on('nuevo_mensaje', (data) => {
-            State.mensajesGlobales.push(data); // Añadir siempre al historial global
+            State.mensajesGlobales.push(data);
+            // Si es nuestro propio mensaje, ya lo renderizamos optimísticamente
+            if (data.nombre === State.miNombre) return;
             if (!State.chatPrivado) {
-                MessageModule.agregar(data, data.nombre === State.miNombre, false, true);
+                MessageModule.agregar(data, false, false, true);
             } else {
-                // Indicador de mensaje nuevo en sala general si está en privado (Opcional, minimal)
                 const globalBtn = document.getElementById('btnGlobalChat');
                 if (globalBtn) globalBtn.style.animation = 'pulse 1.5s 2';
             }
@@ -335,18 +352,26 @@ const MessageModule = {
             if (destSid) {
                 payload.destinatario_sid = destSid;
                 State.socket.emit('mensaje_privado', payload);
-                // Lógica local para privados (optimizado)
                 const msgData = {
                     nombre: State.miNombre,
                     mensaje, color: State.miColor, avatar: State.miAvatar, 
                     hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                    esPrivado: true, tipo, archivo, ext
+                    esPrivado: true, tipo, archivo, ext, nombre_real, tamano
                 };
                 if (!State.mensajesPrivados[State.chatPrivado.nombre]) State.mensajesPrivados[State.chatPrivado.nombre] = [];
                 State.mensajesPrivados[State.chatPrivado.nombre].push(msgData);
+                MessageModule.agregar(msgData, true);
                 if (archivo) LibraryModule.registrar(msgData);
             }
         } else {
+            // Renderizado optimista instantáneo para el remitente
+            const previewData = {
+                nombre: State.miNombre,
+                mensaje, color: State.miColor, avatar: State.miAvatar,
+                hora: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                tipo, archivo, ext, nombre_real, tamano
+            };
+            MessageModule.agregar(previewData, true, false, true);
             State.socket.emit('mensaje', payload);
             State.socket.emit('escribiendo', { escribiendo: false });
         }
@@ -401,16 +426,18 @@ const MessageModule = {
 
         switch(data.tipo) {
             case 'imagen':
-                contentHtml = `<img src="${data.archivo}" alt="Imagen" onclick="window.open(this.src)"><span>${linkifiedText}</span>`;
+                contentHtml = `<img src="${data.archivo}" alt="Imagen" onclick="Utils.abrirVisor(this.src)">`;
+                if (data.mensaje && data.mensaje.trim()) contentHtml += `<span>${linkifiedText}</span>`;
                 break;
             case 'audio':
-                contentHtml = `<audio src="${data.archivo}" controls></audio>`;
+                contentHtml = `<audio src="${data.archivo}" controls preload="metadata"></audio>`;
                 break;
             case 'video':
-                contentHtml = `<video src="${data.archivo}" controls></video><span>${linkifiedText}</span>`;
+                contentHtml = `<video src="${data.archivo}" controls preload="metadata" playsinline></video>`;
+                if (data.mensaje && data.mensaje.trim()) contentHtml += `<span>${linkifiedText}</span>`;
                 break;
             case 'sticker':
-                contentHtml = `<img src="${data.archivo}" class="gif-sticker" style="width:120px; border-radius:12px">`;
+                contentHtml = `<img src="${data.archivo}" class="gif-sticker" alt="Sticker">`;
                 break;
             case 'documento':
                 const icon = Utils.getIconoArchivo(data.ext);

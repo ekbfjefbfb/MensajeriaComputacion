@@ -706,8 +706,8 @@ body {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: #007aff;
-    color: white;
+    background: #f5f5f7;
+    color: #000;
     border: none;
     display: flex;
     justify-content: center;
@@ -717,7 +717,7 @@ body {
 }
 
 .send-action-btn:hover {
-    background: #005bb5;
+    background: #e0e0e0;
     transform: scale(1.05);
 }
 
@@ -746,6 +746,70 @@ body {
 /* Mobile Adjustments */
 @media (max-width: 768px) {
     .sidebar {
-        display: none; /* Simplificado para demo movil */
+        display: none;
     }
+    .message-bubble img, .message-bubble video {
+        max-width: 200px;
+        max-height: 200px;
+    }
+    .media-drawer {
+        width: 100%;
+    }
+}
+
+/* GIF STICKER */
+.gif-sticker {
+    width: 120px;
+    height: auto;
+    border-radius: 12px;
+    display: block;
+}
+
+/* LIGHTBOX */
+.lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s ease;
+    cursor: zoom-out;
+}
+
+.lightbox-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.lightbox-content img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.lightbox-close:hover {
+    opacity: 1;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
