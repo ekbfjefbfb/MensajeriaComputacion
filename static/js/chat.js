@@ -602,7 +602,7 @@ const TypingModule = {
         const indicator = document.getElementById('typingIndicator');
         if (State.chatPrivado) return;
         if (data.escribiendo) {
-            indicator.textContent = `✏️ ${data.nombre} escribe...`;
+            indicator.innerHTML = `${data.nombre} <span class="typing-dots"><span></span><span></span><span></span></span>`;
             indicator.classList.add('visible');
         } else {
             indicator.classList.remove('visible');

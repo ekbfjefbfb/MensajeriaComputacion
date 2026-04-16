@@ -255,8 +255,8 @@ def manejar_mensaje(data):
             return
         
         # Rate limiting
-        if not check_rate_limit(sid, 5, 5):
-            emit('error', {'message': 'Mensajes muy rápido'})
+        if not check_rate_limit(sid, 8, 5):
+            emit('error', {'message': 'Demasiados mensajes'})
             return
         
         # Si avatar es muy grande, ignorarlo
