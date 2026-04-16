@@ -41,6 +41,14 @@ const Utils = {
         errorDiv.textContent = mensaje;
         setTimeout(() => errorDiv.textContent = '', 5000);
     },
+    toast(emoji, duracion = 1500) {
+        const t = document.createElement('div');
+        t.className = 'toast-feedback';
+        t.textContent = emoji;
+        document.body.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('visible'));
+        setTimeout(() => { t.classList.remove('visible'); setTimeout(() => t.remove(), 300); }, duracion);
+    },
     validarNombre(nombre) {
         return /^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]*$/.test(nombre);
     },
@@ -470,6 +478,7 @@ const MessageModule = {
 
 const MediaModule = {
     async alternarGrabacion() {
+        const micBtn = document.getElementById('micBtn');
         if (!State.mediaRecorder || State.mediaRecorder.state === 'inactive') {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -480,16 +489,21 @@ const MediaModule = {
                 State.mediaRecorder.onstop = () => this.enviarVoz();
                 
                 State.mediaRecorder.start();
-                document.getElementById('micBtn').classList.add('recording');
-                // Auto-stop after 30s as per plan
-                setTimeout(() => { if(State.mediaRecorder.state === 'recording') this.alternarGrabacion(); }, 30000);
+                micBtn.classList.add('recording');
+                // Cambiar icono a STOP (cuadrado)
+                micBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>';
+                Utils.toast('🎙️');
+                setTimeout(() => { if(State.mediaRecorder && State.mediaRecorder.state === 'recording') this.alternarGrabacion(); }, 30000);
             } catch (err) {
-                Utils.mostrarError("No se pudo acceder al micrófono");
+                Utils.toast('🚫');
             }
         } else {
             State.mediaRecorder.stop();
-            document.getElementById('micBtn').classList.remove('recording');
+            micBtn.classList.remove('recording');
+            // Restaurar icono de micrófono
+            micBtn.innerHTML = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path fill="currentColor" d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>';
             State.mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            Utils.toast('✅');
         }
     },
     enviarVoz() {
@@ -505,10 +519,12 @@ const MediaModule = {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        if (file.size > 2 * 1024 * 1024) {
+            Utils.toast('⚠️');
             return Utils.mostrarError("Archivo demasiado grande (Máx 2MB)");
         }
 
+        Utils.toast('📎');
         const reader = new FileReader();
         reader.onload = (ev) => {
             const data = ev.target.result;

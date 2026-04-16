@@ -498,11 +498,6 @@ body {
     transform: scale(1.1);
 }
 
-.icon-btn-input.recording {
-    color: var(--danger);
-    animation: pulseMic 1s infinite;
-}
-
 .chat-input {
     flex: 1;
     background: transparent;
@@ -741,6 +736,33 @@ body {
     0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
     70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
     100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* TOAST FEEDBACK */
+.toast-feedback {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    font-size: 2rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    z-index: 9000;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+}
+
+.toast-feedback.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* RECORDING STATE */
+.icon-btn-input.recording {
+    color: #ff3b30;
+    animation: pulseMic 0.8s ease infinite;
+    background: rgba(255, 59, 48, 0.1);
+    border-radius: 50%;
 }
 
 /* Mobile Adjustments */
