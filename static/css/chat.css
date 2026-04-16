@@ -703,10 +703,7 @@ body {
     background: rgba(0,0,0,0.2);
 }
 
-.message-bubble audio {
-    width: 240px;
-    height: 40px;
-}
+
 
 .doc-link {
     display: flex;
@@ -794,17 +791,134 @@ body {
     border-radius: 50%;
 }
 
-/* Mobile Adjustments */
+/* ==============================
+   RESPONSIVE - MOBILE FIRST
+   ============================== */
+
+/* Compact audio player */
+.message-bubble audio {
+    width: 220px;
+    height: 36px;
+    border-radius: 20px;
+}
+
 @media (max-width: 768px) {
     .sidebar {
         display: none;
+    }
+
+    .app-container {
+        flex-direction: column;
+    }
+
+    /* Header compacto */
+    .chat-header {
+        padding: 10px 16px;
+    }
+    .room-title {
+        font-size: 1rem;
+    }
+    .room-subtitle {
+        font-size: 0.7rem;
+    }
+
+    /* Mensajes compactos */
+    .messages-container {
+        padding: 12px;
+    }
+    .message-group {
+        margin-bottom: 14px;
+    }
+    .message-bubble {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        border-radius: 16px;
     }
     .message-bubble img, .message-bubble video {
         max-width: 200px;
         max-height: 200px;
     }
+    .message-bubble audio {
+        width: 180px;
+        height: 32px;
+    }
+    .gif-sticker {
+        width: 90px;
+    }
+    .group-header .avatar {
+        width: 20px;
+        height: 20px;
+    }
+    .group-sender-name {
+        font-size: 0.8rem;
+    }
+
+    /* Input compacto */
+    .input-container {
+        padding: 10px 12px;
+    }
+    .input-wrapper {
+        padding: 4px 10px;
+        gap: 8px;
+    }
+    .chat-input {
+        font-size: 0.9rem;
+        padding: 8px 2px;
+    }
+    .icon-btn-input svg {
+        width: 20px;
+        height: 20px;
+    }
+    .send-action-btn {
+        width: 32px;
+        height: 32px;
+    }
+    .send-action-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Sticker panel compacto */
+    .sticker-panel {
+        left: 12px;
+        right: 12px;
+        bottom: 70px;
+        max-width: none;
+        gap: 8px;
+        padding: 10px;
+    }
+    .sticker-item {
+        width: 38px;
+        height: 38px;
+    }
+
+    /* Drawer full width */
     .media-drawer {
         width: 100%;
+    }
+
+    /* Login compacto */
+    .login-box {
+        padding: 28px 24px;
+    }
+    .brand-title {
+        font-size: 1.6rem;
+    }
+    .avatar-upload {
+        width: 80px;
+        height: 80px;
+    }
+
+    /* Toast más abajo */
+    .toast-feedback {
+        bottom: 80px;
+    }
+
+    /* System messages */
+    .message.system {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+        margin: 8px 0;
     }
 }
 
